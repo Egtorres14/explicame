@@ -110,7 +110,7 @@ Claude Code. El navegador vive en el proceso de la CLI o del servidor MCP durant
     }
   ],
   "source": { "base": "main", "head": "feature/filtro", "commit": "abc123",
-              "generatedBy": "api", "model": "claude-sonnet-5-5", "createdAt": "2026-10-01T18:00:00Z" }
+              "generatedBy": "api", "model": "claude-opus-5-5", "createdAt": "2026-10-01T18:00:00Z" }
 }
 ```
 
@@ -217,7 +217,8 @@ la documentación oficial de Claude Code durante la implementación. No se ofrec
 Claude» dentro de la herramienta: Anthropic no lo permite a terceros sin aprobación.
 
 **Modo API key:** `@anthropic-ai/sdk` con *tool use*. Modelo configurable; por defecto
-`claude-sonnet-5-5`, con `claude-opus-5-5` como opción. La IA queda tras una interfaz
+`claude-opus-5-5` (esfuerzo `high`), con `claude-sonnet-5-5` como opción más económica en el panel.
+Con `fallbacks: "default"` activado para que un rechazo por política se reintente en otro modelo. La IA queda tras una interfaz
 `LlmDriver` para agregar otros proveedores después. Antes de empezar se muestra un estimado de
 tokens y costo.
 
