@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.explicame/
+.superpowers/
+examples/demo-app/dist/
+examples/demo-app/public/explicame/
+*.log
