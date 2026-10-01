@@ -1,0 +1,5 @@
+body { font-family: system-ui, sans-serif; margin: 2rem; color: #1d1b26; }
+.toolbar { display: flex; gap: 0.5rem; margin: 1rem 0; }
+table { border-collapse: collapse; width: 100%; max-width: 720px; }
+th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e2ec; }
+dialog form { display: grid; gap: 0.5rem; min-width: 280px; }
