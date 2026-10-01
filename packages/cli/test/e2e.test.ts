@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,6 +19,7 @@ let out: string;
 let home: string;
 
 beforeAll(async () => {
+  execSync("npm run build -w @explicame/player", { cwd: fileURLToPath(new URL("../../../", import.meta.url)), stdio: "pipe" });
   await viteBuild({ root: DEMO, logLevel: "silent" });
   server = await startServer(join(DEMO, "dist"));
   out = await mkdtemp(join(tmpdir(), "explicame-e2e-out-"));
@@ -49,5 +51,6 @@ describe("explicame build on the demo app", () => {
     expect(index.map((g) => g.id)).toEqual(["nuevo-filtro-por-fecha"]);
     expect(validateGuide(JSON.parse(await readFile(join(dir, "guide.json"), "utf8"))).ok).toBe(true);
     expect(server.hits.filter((hit) => hit.method !== "GET")).toEqual([]);
+    expect(existsSync(join(out, "explicame-player.js"))).toBe(true);
   }, 120_000);
 });

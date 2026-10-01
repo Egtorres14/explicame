@@ -25,6 +25,7 @@ const es = {
   "login.instructions": "Inicia sesión en la ventana que se abrió y cierra la pestaña cuando termines.",
   "login.saved": "Sesión guardada en {path}",
   "build.done": "Listo: {count} pasos en {langs}. Guía en {path}",
+  "player.hint": "Para verla en tu app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 } as const;
 
 const en: Record<keyof typeof es, string> = {
@@ -52,6 +53,7 @@ const en: Record<keyof typeof es, string> = {
   "login.instructions": "Log in in the window that opened and close the tab when you're done.",
   "login.saved": "Session saved at {path}",
   "build.done": "Done: {count} steps in {langs}. Guide at {path}",
+  "player.hint": "To see it in your app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 };
 
 export const MESSAGES = { es, en } as const;

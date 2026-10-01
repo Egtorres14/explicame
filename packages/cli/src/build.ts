@@ -13,6 +13,7 @@ import { countFirstTurnTokens, createAnthropicDriver, estimateCostUsd } from "./
 import type { LlmDriver, Usage } from "./generate/driver.js";
 import { LoopError, runExploration, type ExplorationResult } from "./generate/loop.js";
 import { slugify, writeGuide } from "./output.js";
+import { copyPlayer } from "./player.js";
 import { writeReport, writeReportSync } from "./report.js";
 import { verifyAndRepair } from "./verify.js";
 import { buildVoiceProviders } from "./voice/index.js";
@@ -160,6 +161,8 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
     });
   }
   await writeGuide(outputRoot, guide);
+  await copyPlayer(outputRoot);
+  log(t(lang, "player.hint"));
   log(t(lang, "build.done", { count: guide.steps.length, langs: guide.languages.join(" + "), path: dir }));
   return { guide, dir, usage: driver.usage() };
 }
