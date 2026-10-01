@@ -1,5 +1,6 @@
 import "./style.css";
 import { renderTable, type Report } from "./table";
+import { mountDateFilter } from "./filter";
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -12,6 +13,7 @@ async function main(): Promise<void> {
     </table>`;
   const reports = (await (await fetch("/api/reports.json")).json()) as Report[];
   renderTable(app.querySelector("tbody")!, reports);
+  mountDateFilter(app.querySelector<HTMLElement>(".toolbar")!, app.querySelector("tbody")!, reports);
 }
 
 void main();
