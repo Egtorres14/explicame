@@ -1,0 +1,57 @@
+import type { Lang } from "./guide.js";
+
+const es = {
+  "app.unreachable": "No pude abrir {url}: ¿está corriendo la app?",
+  "diff.empty": "No hay cambios entre {base} y {head}: no hay nada que explicar.",
+  "diff.truncated": "El diff era muy grande; quedaron fuera: {files}",
+  "config.invalid": "explicame.config.json no es válido: {errors}",
+  "config.secretInConfig": "explicame.config.json no puede contener claves ({key}). Usa variables de entorno o ~/.explicame/credentials.json.",
+  "credentials.missing": "Falta la clave de {name}. Configúrala en el panel, en la variable de entorno {env} o en ~/.explicame/credentials.json.",
+  "tool.unknownElement": "Element {id} is not on the current screen. Call observe to get the updated map.",
+  "tool.unsafeSubmit": "Element {id} submits a form: it can only be pointed at, not clicked. Use add_step with action null.",
+  "tool.unsafeDestructive": "Element {id} (\"{name}\") saves, sends or deletes data: it can only be pointed at, not clicked. Use add_step with action null.",
+  "tool.noStableSelector": "There is no stable way to find {id} again. Pick another element.",
+  "tool.actionFailed": "The {action} action on {id} failed: {error}",
+  "tool.invalidInput": "Invalid input for {tool}: {errors}",
+  "tool.stepLimit": "You reached the maximum of {max} steps: call finish.",
+  "loop.noFinish": "La IA terminó sin llamar a finish.",
+  "verify.failed": "El paso {index} no se pudo verificar: {error}",
+  "voice.allFailed": "Ningún proveedor de voz respondió para el paso {index} ({lang}); ese paso usará la voz del navegador.",
+  "voice.noProvider": "No hay proveedor de voz configurado: la guía usará la voz del navegador.",
+  "estimate.cost": "Costo estimado: ~US${usd} ({model}, hasta {steps} pasos).",
+  "login.instructions": "Inicia sesión en la ventana que se abrió y cierra la pestaña cuando termines.",
+  "login.saved": "Sesión guardada en {path}",
+  "build.done": "Listo: {count} pasos en {langs}. Guía en {path}",
+} as const;
+
+const en: Record<keyof typeof es, string> = {
+  "app.unreachable": "I couldn't open {url}: is the app running?",
+  "diff.empty": "There are no changes between {base} and {head}: nothing to explain.",
+  "diff.truncated": "The diff was too large; these files were left out: {files}",
+  "config.invalid": "explicame.config.json is not valid: {errors}",
+  "config.secretInConfig": "explicame.config.json can't contain keys ({key}). Use environment variables or ~/.explicame/credentials.json.",
+  "credentials.missing": "The {name} key is missing. Set it in the panel, in the {env} environment variable or in ~/.explicame/credentials.json.",
+  "tool.unknownElement": "Element {id} is not on the current screen. Call observe to get the updated map.",
+  "tool.unsafeSubmit": "Element {id} submits a form: it can only be pointed at, not clicked. Use add_step with action null.",
+  "tool.unsafeDestructive": "Element {id} (\"{name}\") saves, sends or deletes data: it can only be pointed at, not clicked. Use add_step with action null.",
+  "tool.noStableSelector": "There is no stable way to find {id} again. Pick another element.",
+  "tool.actionFailed": "The {action} action on {id} failed: {error}",
+  "tool.invalidInput": "Invalid input for {tool}: {errors}",
+  "tool.stepLimit": "You reached the maximum of {max} steps: call finish.",
+  "loop.noFinish": "The AI stopped without calling finish.",
+  "verify.failed": "Step {index} could not be verified: {error}",
+  "voice.allFailed": "No voice provider answered for step {index} ({lang}); that step will use the browser voice.",
+  "voice.noProvider": "No voice provider is configured: the guide will use the browser voice.",
+  "estimate.cost": "Estimated cost: ~US${usd} ({model}, up to {steps} steps).",
+  "login.instructions": "Log in in the window that opened and close the tab when you're done.",
+  "login.saved": "Session saved at {path}",
+  "build.done": "Done: {count} steps in {langs}. Guide at {path}",
+};
+
+export const MESSAGES = { es, en } as const;
+export type MessageKey = keyof typeof es;
+
+export function t(lang: Lang, key: MessageKey, params: Record<string, string | number> = {}): string {
+  const template: string = MESSAGES[lang][key] ?? MESSAGES.es[key];
+  return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match));
+}
