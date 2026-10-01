@@ -5,12 +5,12 @@
 ## 1. Contexto y objetivo
 
 Cada funcionalidad nueva de una app web obliga a alguien a explicarla: grabar un video, escribir un
-manual, sentarse con cada usuario. En la plataforma de Ágora existe una base de esto, la función
+manual, sentarse con cada usuario. En una plataforma de operaciones en producción construida por el autor existe una base de esto, la función
 «¿Cómo funciona?»: guiones de pasos escritos a mano que recorren la pantalla real, señalan cada
 elemento con un anillo, narran con voz pregenerada y simulan acciones sin guardar nada.
 
 **explicame** convierte esa idea en una herramienta de código abierto, escrita desde cero (sin
-código de Ágora), que **genera el guion sola a partir del cambio en el código**:
+código de esa plataforma), que **genera el guion sola a partir del cambio en el código**:
 
 > diff de git → la IA explora la app real → guion bilingüe → voz → guía interactiva + video MP4
 
