@@ -38,9 +38,10 @@ export async function resolveHandle(page: Page, strategies: Strategy[], timeoutM
   }
 }
 
-export async function performAction(page: Page, element: ElementHandle<Element> | null, action: Action): Promise<void> {
+/** `baseUrl` is the app's URL: navigate paths resolve against it, never against wherever the page happens to be. */
+export async function performAction(page: Page, element: ElementHandle<Element> | null, action: Action, baseUrl?: string): Promise<void> {
   if (action.type === "navigate") {
-    await page.goto(new URL(action.url, page.url()).toString(), { waitUntil: "domcontentloaded" });
+    await page.goto(new URL(action.url, baseUrl ?? page.url()).toString(), { waitUntil: "domcontentloaded" });
   } else {
     if (!element) throw new Error(`the ${action.type} action needs an element`);
     if (action.type === "click") await element.click({ timeout: 5000 });

@@ -46,6 +46,13 @@ describe("validateGuide", () => {
     expect(validateGuide(g).ok).toBe(true);
   });
 
+  it("rejects protocol-relative navigation and start URLs", () => {
+    const g = base();
+    g.steps[0]!.action = { type: "navigate", url: "//evil.example/x" } as unknown as { type: "click" };
+    expect(validateGuide(g).ok).toBe(false);
+    expect(validateGuide({ ...base(), startUrl: "//evil.example/" }).ok).toBe(false);
+  });
+
   it("rejects ids that are not kebab-case and external navigation", () => {
     expect(validateGuide({ ...base(), id: "Filtro Fecha" }).ok).toBe(false);
     const g = base();

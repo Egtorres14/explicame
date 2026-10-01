@@ -77,6 +77,18 @@ describe("runExploration", () => {
     expect(result.steps).toHaveLength(1);
   });
 
+  it("brings the session back when an action leaves the app", async () => {
+    const { driver } = await explore([
+      [{ name: "observe", input: {} }],
+      [{ name: "act", input: { element: { name: "Sitio externo" }, action: "click", value: null, url: null } }],
+      [{ name: "observe", input: {} }],
+      [addStep(say("Bienvenida.", "Welcome."), null, null)],
+      [{ name: "finish", input: { title: say("Guía", "Guide") } }],
+    ]);
+    expect(driver.received[1]![0]!.content).toContain("left the app");
+    expect(JSON.parse(driver.received[2]![0]!.content).url).toBe("/");
+  });
+
   it("nudges once and then fails when the model never calls finish", async () => {
     const session = await openSession({ appUrl: server.url, startUrl: "/" });
     const driver = createFakeDriver({ turns: [[{ name: "observe", input: {} }]] });

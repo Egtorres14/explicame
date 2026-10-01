@@ -22,6 +22,7 @@
     <div id="lista">
       <button type="button" onclick="this.parentElement.innerHTML = '&lt;button type=&quot;button&quot;&gt;Recargar lista&lt;/button&gt;'">Recargar lista</button>
     </div>
+    <p><a href="http://127.0.0.1:9/">Sitio externo</a></p>
     <script>
       fetch("/api/track", { method: "POST", body: "{}" }).catch(() => {});
       fetch("/api/search", { method: "POST", body: "{}" }).catch(() => {});

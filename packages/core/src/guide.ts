@@ -4,6 +4,8 @@ export const LANGUAGES = ["es", "en"] as const;
 export type Lang = (typeof LANGUAGES)[number];
 export type LocalizedText = Partial<Record<Lang, string>>;
 export const MAX_NARRATION = 300;
+/** Same-origin path: starts with one slash, never two ("//host" would leave the app). */
+export const SAME_ORIGIN_PATH = /^\/(?!\/)/;
 
 export const StrategySchema = z.discriminatedUnion("by", [
   z.object({ by: z.literal("tour"), value: z.string().min(1) }),
@@ -19,7 +21,7 @@ export const ActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("click") }),
   z.object({ type: z.literal("type"), value: z.string().min(1) }),
   z.object({ type: z.literal("select"), value: z.string().min(1) }),
-  z.object({ type: z.literal("navigate"), url: z.string().startsWith("/") }),
+  z.object({ type: z.literal("navigate"), url: z.string().regex(SAME_ORIGIN_PATH) }),
 ]);
 export type Action = z.infer<typeof ActionSchema>;
 
@@ -40,7 +42,7 @@ export const GuideSchema = z
     id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     languages: z.array(z.enum(LANGUAGES)).min(1),
     title: Localized,
-    startUrl: z.string().startsWith("/"),
+    startUrl: z.string().regex(SAME_ORIGIN_PATH),
     steps: z.array(StepSchema).min(1),
     source: z.object({
       base: z.string(),

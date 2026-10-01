@@ -47,6 +47,11 @@ describe("verifyGuide", () => {
 });
 
 describe("verifyAndRepair", () => {
+  it("reports failures in the UI language", async () => {
+    const driver = createFakeDriver({ turns: [] });
+    await expect(verifyAndRepair({ guide: broken(), driver, pendingResults: [], open, timeoutMs: 500, lang: "es" })).rejects.toThrow(/El paso 2 no se pudo verificar/);
+  });
+
   it("lets the model replace the failing step once", async () => {
     const driver = createFakeDriver({
       turns: [[{ name: "add_step", input: { narration: { es: "Elige la fecha." }, element: { label: "Desde" }, action: "type", value: "2026-09-01", url: null, opens: null } }]],

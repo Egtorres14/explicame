@@ -6,7 +6,7 @@ import {
   type Guide, type Lang, type LocalizedText, type Step,
 } from "@explicame/core";
 import { openSession } from "./browser/session.js";
-import type { Config } from "./config.js";
+import { ConfigError, type Config } from "./config.js";
 import { explicameHome, requireCredential, type Credentials } from "./credentials.js";
 import { getChangeContext, type ChangeContext } from "./diff.js";
 import { countFirstTurnTokens, createAnthropicDriver, estimateCostUsd } from "./generate/anthropicDriver.js";
@@ -95,6 +95,8 @@ export async function build(o: BuildOptions): Promise<BuildResult> {
     return await runBuild(o, log, reportDir);
   } catch (error) {
     await writeReport(reportDir, { error: (error as Error).message, events });
+    (o.log ?? (() => {}))(t(o.config.uiLanguage, "report.saved", { path: reportDir }));
+    if (error instanceof Error) Object.assign(error, { reportDir });
     throw error;
   } finally {
     process.removeListener("SIGINT", onInterrupt);
@@ -103,6 +105,7 @@ export async function build(o: BuildOptions): Promise<BuildResult> {
 
 async function runBuild(o: BuildOptions, log: (message: string) => void, reportDir: string): Promise<BuildResult> {
   const lang = o.config.uiLanguage;
+  if (o.id !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(o.id)) throw new ConfigError(t(lang, "config.invalidId", { id: o.id }));
   const home = o.home ?? explicameHome();
   const context = await getChangeContext({
     cwd: o.cwd, base: o.base ?? o.config.base, head: o.head ?? "HEAD",
@@ -134,7 +137,7 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
   try {
     exploration = await runExploration({
       driver, session, languages: o.config.languages, maxSteps: o.config.maxSteps, context,
-      appUrl: o.config.appUrl, startUrl: o.config.startUrl, onEvent: (event) => log(event.message),
+      appUrl: o.config.appUrl, startUrl: o.config.startUrl, onEvent: (event) => log(event.message), lang,
     });
   } finally {
     await session.close();
@@ -144,7 +147,7 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
     id: o.id, languages: o.config.languages, title: exploration.title, steps: exploration.steps,
     startUrl: o.config.startUrl, context, driver,
   });
-  guide = await verifyAndRepair({ guide, driver, pendingResults: exploration.pendingResults, open, log, reportDir });
+  guide = await verifyAndRepair({ guide, driver, pendingResults: exploration.pendingResults, open, log, reportDir, lang });
 
   const outputRoot = resolve(o.cwd, o.config.outputDir);
   const dir = join(outputRoot, guide.id);
@@ -153,7 +156,7 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
     if (providers.length === 0) log(t(lang, "voice.noProvider"));
     guide = await voiceGuide(guide, {
       providers, guideDir: dir, cacheDir: join(home, "cache", "voice"),
-      voices: o.config.voice.voices, speed: o.config.voice.speed, onWarn: log,
+      voices: o.config.voice.voices, speed: o.config.voice.speed, onWarn: log, lang,
     });
   }
   await writeGuide(outputRoot, guide);

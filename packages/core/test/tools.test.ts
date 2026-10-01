@@ -48,5 +48,6 @@ describe("toAction", () => {
     expect(toAction("select", null, null).ok).toBe(false);
     expect(toAction("navigate", null, "/ayuda")).toEqual({ ok: true, action: { type: "navigate", url: "/ayuda" } });
     expect(toAction("navigate", null, "https://otro.sitio").ok).toBe(false);
+    expect(toAction("navigate", null, "//evil.example/x").ok).toBe(false);
   });
 });

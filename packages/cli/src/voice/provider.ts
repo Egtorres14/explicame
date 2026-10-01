@@ -71,6 +71,8 @@ export interface VoiceGuideOptions {
   retries?: number;
   sleep?: (ms: number) => Promise<void>;
   onWarn?: (message: string) => void;
+  /** Language of the warnings for the person running the CLI. */
+  lang?: Lang;
 }
 
 export async function voiceGuide(guide: Guide, o: VoiceGuideOptions): Promise<Guide> {
@@ -89,7 +91,7 @@ export async function voiceGuide(guide: Guide, o: VoiceGuideOptions): Promise<Gu
         audio[lang] = relative;
       } catch (error) {
         if (!(error instanceof VoiceError)) throw error;
-        o.onWarn?.(t("en", "voice.allFailed", { index: index + 1, lang }));
+        o.onWarn?.(t(o.lang ?? "en", "voice.allFailed", { index: index + 1, lang }));
       }
     }
     steps.push(Object.keys(audio).length ? { ...step, audio } : step);

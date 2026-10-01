@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { repairMessage, t, type Guide, type Step } from "@explicame/core";
+import { repairMessage, t, type Guide, type Lang, type Step } from "@explicame/core";
 import { observe, performAction, resolveHandle } from "./browser/page.js";
 import type { Session } from "./browser/session.js";
 import type { LlmDriver, ToolResult } from "./generate/driver.js";
@@ -14,8 +14,8 @@ export interface VerifyFailure {
 
 export class VerifyError extends Error {
   readonly failure: VerifyFailure;
-  constructor(failure: VerifyFailure) {
-    super(t("en", "verify.failed", { index: failure.index + 1, error: failure.error }));
+  constructor(failure: VerifyFailure, lang: Lang = "en") {
+    super(t(lang, "verify.failed", { index: failure.index + 1, error: failure.error }));
     this.name = "VerifyError";
     this.failure = failure;
   }
@@ -35,7 +35,7 @@ async function replayStep(session: Session, step: Step, timeoutMs: number): Prom
   }
   if (step.action) {
     try {
-      await performAction(session.page, handle, step.action);
+      await performAction(session.page, handle, step.action, session.appUrl);
     } catch (error) {
       return (error as Error).message.split("\n")[0] ?? "the action failed";
     }
@@ -73,26 +73,29 @@ export interface RepairOptions {
   timeoutMs?: number;
   reportDir?: string;
   log?: (message: string) => void;
+  /** Language of the messages for the person running the CLI. */
+  lang?: Lang;
 }
 
 /** Verifies; for each failing step the model gets one chance to replace it, then everything is verified again. */
 export async function verifyAndRepair(o: RepairOptions): Promise<Guide> {
   const timeoutMs = o.timeoutMs ?? 5000;
+  const lang = o.lang ?? "en";
   let guide = o.guide;
   let pending = o.pendingResults;
   const attempted = new Set<number>();
   for (;;) {
     const failure = (await verifyGuide(guide, o.open, { timeoutMs, reportDir: o.reportDir }))[0];
     if (!failure) return guide;
-    if (attempted.has(failure.index)) throw new VerifyError(failure);
+    if (attempted.has(failure.index)) throw new VerifyError(failure, lang);
     attempted.add(failure.index);
-    o.log?.(t("en", "verify.failed", { index: failure.index + 1, error: failure.error }));
+    o.log?.(t(lang, "verify.failed", { index: failure.index + 1, error: failure.error }));
 
     const session = await o.open();
     try {
       for (const step of guide.steps.slice(0, failure.index)) {
         const error = await replayStep(session, step, timeoutMs);
-        if (error) throw new VerifyError({ index: failure.index, error });
+        if (error) throw new VerifyError({ index: failure.index, error }, lang);
       }
       const state: ExplorationState = { session, languages: guide.languages, maxSteps: Number.MAX_SAFE_INTEGER, steps: [], title: null };
       let turn = await o.driver.reply(pending, repairMessage(failure.index, failure.error, JSON.stringify(await observe(session.page))));
@@ -108,7 +111,7 @@ export async function verifyAndRepair(o: RepairOptions): Promise<Guide> {
         }
         turn = await o.driver.reply(results);
       }
-      if (!replacement) throw new VerifyError(failure);
+      if (!replacement) throw new VerifyError(failure, lang);
       const fixed = replacement;
       guide = { ...guide, steps: guide.steps.map((step, index) => (index === failure.index ? fixed : step)) };
     } finally {

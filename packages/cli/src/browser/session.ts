@@ -17,6 +17,10 @@ export interface SessionOptions {
 }
 
 export interface Session {
+  appUrl: string;
+  startUrl: string;
+  /** True while the page is still on the app's origin. */
+  inApp(): boolean;
   page: Page;
   context: BrowserContext;
   blocked: BlockedRequest[];
@@ -60,7 +64,18 @@ export async function openSession(o: SessionOptions): Promise<Session> {
       await settle(page);
     };
     await goto(o.startUrl);
+    const appOrigin = new URL(o.appUrl).origin;
+    const inApp = () => {
+      try {
+        return new URL(page.url()).origin === appOrigin;
+      } catch {
+        return false;
+      }
+    };
     return {
+      appUrl: o.appUrl,
+      startUrl: o.startUrl,
+      inApp,
       page,
       context,
       blocked,

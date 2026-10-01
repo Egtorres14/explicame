@@ -66,6 +66,8 @@ describe("voiceGuide", () => {
     const voiced = await voiceGuide(guide(), { providers: [failing()], guideDir: dir, cacheDir: join(dir, "cache"), voices: {}, speed: 1, retries: 1, sleep: noSleep, onWarn });
     expect(voiced.steps[0]!.audio).toBeUndefined();
     expect(onWarn).toHaveBeenCalledTimes(4);
+    await voiceGuide(guide(), { providers: [failing()], guideDir: dir, cacheDir: join(dir, "cache"), voices: {}, speed: 1, retries: 1, sleep: noSleep, onWarn, lang: "es" });
+    expect(onWarn).toHaveBeenLastCalledWith(expect.stringContaining("Ningún proveedor"));
   });
 });
 

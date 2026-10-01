@@ -46,6 +46,8 @@ export interface ExplorationOptions {
   onEvent?: (event: LoopEvent) => void;
   /** Maximum input tokens for the whole conversation (default DEFAULT_TOKEN_BUDGET). */
   tokenBudget?: number;
+  /** Language of the messages for the person running the CLI (tool results to the AI stay in English). */
+  lang?: Lang;
 }
 
 export interface ExplorationResult {
@@ -91,7 +93,7 @@ export async function runExploration(o: ExplorationOptions): Promise<Exploration
     turn = await o.driver.reply(results);
     checkBudget(o);
   }
-  if (!state.title) throw new LoopError(t("en", "loop.noFinish"));
+  if (!state.title) throw new LoopError(t(o.lang ?? "en", "loop.noFinish"));
   if (state.steps.length === 0) throw new LoopError("The guide has no steps.");
   return { steps: state.steps, title: state.title, pendingResults: pending };
 }
@@ -103,6 +105,7 @@ export async function executeCall(call: ToolCall, state: ExplorationState): Prom
   const c = parsed.call;
   try {
     if (c.name === "observe") {
+      await ensureInApp(state);
       state.onEvent?.({ type: "observe", message: "observe" });
       return { id: call.id, content: JSON.stringify(await observe(page)) };
     }
@@ -184,9 +187,18 @@ async function apply(
 
 async function perform(state: ExplorationState, handle: Awaited<ReturnType<typeof handleById>>, action: Action, id: string) {
   try {
-    await performAction(state.session.page, handle, action);
+    await performAction(state.session.page, handle, action, state.session.appUrl);
   } catch (error) {
     const first = (error as Error).message.split("\n")[0] ?? "";
     throw new ToolError(t("en", "tool.actionFailed", { action: action.type, id, error: first }));
   }
+  await ensureInApp(state);
+}
+
+/** If the page left the app (external link, blocked form submit), take it back to the start and tell the AI. */
+async function ensureInApp(state: ExplorationState): Promise<void> {
+  if (state.session.inApp()) return;
+  const where = state.session.page.url();
+  await state.session.goto(state.session.startUrl);
+  throw new ToolError(t("en", "tool.leftApp", { url: where }));
 }

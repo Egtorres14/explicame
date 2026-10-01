@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_NARRATION, type Action, type Lang, type LocalizedText } from "./guide.js";
+import { MAX_NARRATION, SAME_ORIGIN_PATH, type Action, type Lang, type LocalizedText } from "./guide.js";
 
 export const TOOL_NAMES = ["observe", "act", "add_step", "finish"] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -148,7 +148,7 @@ export function parseToolCall(
 export function toAction(kind: ActionKind, value: string | null, url: string | null): { ok: true; action: Action } | { ok: false; error: string } {
   if (kind === "click") return { ok: true, action: { type: "click" } };
   if (kind === "navigate") {
-    return url && url.startsWith("/")
+    return url && SAME_ORIGIN_PATH.test(url)
       ? { ok: true, action: { type: "navigate", url } }
       : { ok: false, error: "navigate needs a same-origin url that starts with /" };
   }
