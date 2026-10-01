@@ -44,6 +44,8 @@ export interface ExplorationOptions {
   appUrl: string;
   startUrl: string;
   onEvent?: (event: LoopEvent) => void;
+  /** Maximum input tokens for the whole conversation (default DEFAULT_TOKEN_BUDGET). */
+  tokenBudget?: number;
 }
 
 export interface ExplorationResult {
@@ -54,6 +56,12 @@ export interface ExplorationResult {
 }
 
 const NUDGE = "Continue with the tools. When the guide is complete, call finish.";
+export const DEFAULT_TOKEN_BUDGET = 2_000_000;
+
+function checkBudget(o: ExplorationOptions): void {
+  const budget = o.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
+  if (o.driver.usage().inputTokens > budget) throw new LoopError(`The token budget of ${budget} input tokens was exceeded.`);
+}
 
 export async function runExploration(o: ExplorationOptions): Promise<ExplorationResult> {
   const state: ExplorationState = { session: o.session, languages: o.languages, maxSteps: o.maxSteps, steps: [], title: null, onEvent: o.onEvent };
@@ -70,6 +78,7 @@ export async function runExploration(o: ExplorationOptions): Promise<Exploration
       if (nudged) break;
       nudged = true;
       turn = await o.driver.reply([], NUDGE);
+      checkBudget(o);
       continue;
     }
     nudged = false;
@@ -80,6 +89,7 @@ export async function runExploration(o: ExplorationOptions): Promise<Exploration
       break;
     }
     turn = await o.driver.reply(results);
+    checkBudget(o);
   }
   if (!state.title) throw new LoopError(t("en", "loop.noFinish"));
   if (state.steps.length === 0) throw new LoopError("The guide has no steps.");

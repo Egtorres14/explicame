@@ -13,6 +13,7 @@ import { countFirstTurnTokens, createAnthropicDriver, estimateCostUsd } from "./
 import type { LlmDriver, Usage } from "./generate/driver.js";
 import { LoopError, runExploration, type ExplorationResult } from "./generate/loop.js";
 import { slugify, writeGuide } from "./output.js";
+import { writeReport, writeReportSync } from "./report.js";
 import { verifyAndRepair } from "./verify.js";
 import { buildVoiceProviders } from "./voice/index.js";
 import { voiceGuide, type VoiceProvider } from "./voice/provider.js";
@@ -78,8 +79,30 @@ export function assembleGuide(x: {
 }
 
 export async function build(o: BuildOptions): Promise<BuildResult> {
+  const reportDir = join(resolve(o.cwd), ".explicame", "reports", new Date().toISOString().replace(/[:.]/g, "-"));
+  const events: string[] = [];
+  const log = (message: string) => {
+    events.push(message);
+    (o.log ?? (() => {}))(message);
+  };
+  // Playwright closes its browsers on Ctrl+C by itself (handleSIGINT); this only leaves a partial report behind.
+  const onInterrupt = () => {
+    writeReportSync(reportDir, { interrupted: true, events });
+    process.exit(130);
+  };
+  process.once("SIGINT", onInterrupt);
+  try {
+    return await runBuild(o, log, reportDir);
+  } catch (error) {
+    await writeReport(reportDir, { error: (error as Error).message, events });
+    throw error;
+  } finally {
+    process.removeListener("SIGINT", onInterrupt);
+  }
+}
+
+async function runBuild(o: BuildOptions, log: (message: string) => void, reportDir: string): Promise<BuildResult> {
   const lang = o.config.uiLanguage;
-  const log = o.log ?? (() => {});
   const home = o.home ?? explicameHome();
   const context = await getChangeContext({
     cwd: o.cwd, base: o.base ?? o.config.base, head: o.head ?? "HEAD",
@@ -121,7 +144,7 @@ export async function build(o: BuildOptions): Promise<BuildResult> {
     id: o.id, languages: o.config.languages, title: exploration.title, steps: exploration.steps,
     startUrl: o.config.startUrl, context, driver,
   });
-  guide = await verifyAndRepair({ guide, driver, pendingResults: exploration.pendingResults, open, log });
+  guide = await verifyAndRepair({ guide, driver, pendingResults: exploration.pendingResults, open, log, reportDir });
 
   const outputRoot = resolve(o.cwd, o.config.outputDir);
   const dir = join(outputRoot, guide.id);

@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { repairMessage, t, type Guide, type Step } from "@explicame/core";
 import { observe, performAction, resolveHandle } from "./browser/page.js";
 import type { Session } from "./browser/session.js";
@@ -7,6 +9,7 @@ import { executeCall, type ExplorationState } from "./generate/loop.js";
 export interface VerifyFailure {
   index: number;
   error: string;
+  screenshot?: string;
 }
 
 export class VerifyError extends Error {
@@ -20,6 +23,8 @@ export class VerifyError extends Error {
 
 export interface VerifyOptions {
   timeoutMs?: number;
+  /** When set, a screenshot of the failing step is saved here. */
+  reportDir?: string;
 }
 
 async function replayStep(session: Session, step: Step, timeoutMs: number): Promise<string | null> {
@@ -44,7 +49,14 @@ export async function verifyGuide(guide: Guide, open: () => Promise<Session>, o:
   try {
     for (const [index, step] of guide.steps.entries()) {
       const error = await replayStep(session, step, o.timeoutMs ?? 5000);
-      if (error) return [{ index, error }];
+      if (!error) continue;
+      const failure: VerifyFailure = { index, error };
+      if (o.reportDir) {
+        await mkdir(o.reportDir, { recursive: true });
+        failure.screenshot = join(o.reportDir, `step-${String(index + 1).padStart(2, "0")}.png`);
+        await session.page.screenshot({ path: failure.screenshot });
+      }
+      return [failure];
     }
     return [];
   } finally {
@@ -59,6 +71,7 @@ export interface RepairOptions {
   pendingResults: ToolResult[];
   open: () => Promise<Session>;
   timeoutMs?: number;
+  reportDir?: string;
   log?: (message: string) => void;
 }
 
@@ -69,7 +82,7 @@ export async function verifyAndRepair(o: RepairOptions): Promise<Guide> {
   let pending = o.pendingResults;
   const attempted = new Set<number>();
   for (;;) {
-    const failure = (await verifyGuide(guide, o.open, { timeoutMs }))[0];
+    const failure = (await verifyGuide(guide, o.open, { timeoutMs, reportDir: o.reportDir }))[0];
     if (!failure) return guide;
     if (attempted.has(failure.index)) throw new VerifyError(failure);
     attempted.add(failure.index);
