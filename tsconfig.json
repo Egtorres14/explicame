@@ -2,7 +2,21 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "paths": { "@explicame/core": ["./packages/core/src/index.ts"] }
+    "paths": {
+      "@explicame/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@explicame/core/runtime": [
+        "./packages/core/src/domRuntimeImpl.d.ts"
+      ],
+      "@explicame/core/safety": [
+        "./packages/core/src/safety.ts"
+      ]
+    }
   },
-  "include": ["packages/*/src", "packages/*/test", "vitest.config.ts"]
+  "include": [
+    "packages/*/src",
+    "packages/*/test",
+    "vitest.config.ts"
+  ]
 }
