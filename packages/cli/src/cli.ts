@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { Command } from "commander";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { t, type Lang } from "@explicame/core";
 import { AppUnreachableError, openSession } from "./browser/session.js";
-import { build } from "./build.js";
+import { build, sessionPath } from "./build.js";
 import { ConfigError, loadConfig, type Config } from "./config.js";
 import { explicameHome, loadCredentials, type Credentials } from "./credentials.js";
 import { createFakeDriver, loadFakeScript } from "./generate/fakeDriver.js";
@@ -13,9 +14,10 @@ import { VerifyError, verifyGuide } from "./verify.js";
 import { createFakeVoiceProvider } from "./voice/fake.js";
 import { buildVoiceProviders } from "./voice/index.js";
 import { VoiceError, voiceGuide } from "./voice/provider.js";
+import { recordGuide, RecordError } from "./record.js";
 
 export function exitCodeFor(error: unknown): number {
-  if (error instanceof VerifyError || error instanceof LoopError) return 1;
+  if (error instanceof VerifyError || error instanceof LoopError || error instanceof RecordError) return 1;
   if (error instanceof ConfigError || error instanceof Anthropic.AuthenticationError) return 2;
   if (error instanceof AppUnreachableError) return 3;
   if (error instanceof VoiceError || error instanceof Anthropic.APIConnectionError || error instanceof Anthropic.RateLimitError) return 4;
@@ -42,6 +44,22 @@ async function run(task: (ctx: RunContext) => Promise<unknown>): Promise<void> {
   }
 }
 
+async function recordAll(ctx: RunContext, guidePath: string, langs: Lang[]): Promise<void> {
+  const file = resolve(ctx.cwd, guidePath);
+  const guide = await readGuide(file);
+  for (const lang of langs.filter((l) => guide.languages.includes(l))) {
+    const result = await recordGuide({
+      guide, guidesRoot: dirname(dirname(file)), appUrl: ctx.config.appUrl, lang,
+      outDir: resolve(ctx.cwd, ctx.config.videoDir), allowRequests: ctx.config.safety.allowRequests,
+      storageStatePath: sessionPath(explicameHome(), ctx.cwd), uiLang: ctx.config.uiLanguage,
+    });
+    ctx.log(t(ctx.config.uiLanguage, "record.done", { path: result.video }));
+  }
+}
+
+const langsOf = (value: string | undefined, config: Config): Lang[] =>
+  !value || value === "all" ? config.languages : (value.split(",").map((s) => s.trim()) as Lang[]);
+
 const list = (value: string | undefined) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : undefined);
 
 export function createProgram(): Command {
@@ -61,17 +79,19 @@ export function createProgram(): Command {
     .option("--describe <text>", "qué hace la funcionalidad, en una frase")
     .option("--id <id>", "id de la guía (kebab-case)")
     .option("--no-voice", "no generar audio")
-    .action((opts: { base?: string; head: string; diffFile?: string; files?: string; describe?: string; id?: string; voice: boolean }) =>
+    .option("--video", "grabar también el MP4 de cada idioma")
+    .action((opts: { base?: string; head: string; diffFile?: string; files?: string; describe?: string; id?: string; voice: boolean; video?: boolean }) =>
       run(async ({ cwd, config, credentials, log }) => {
         // Testing hooks: a scripted fake AI and silent voices, so CI never needs keys.
         const fakeScript = process.env.EXPLICAME_FAKE_SCRIPT;
-        await build({
+        const result = await build({
           cwd, config, credentials, log,
           base: opts.base, head: opts.head, diffFile: opts.diffFile, files: list(opts.files),
           describe: opts.describe, id: opts.id, voice: opts.voice,
           driver: fakeScript ? createFakeDriver(await loadFakeScript(resolve(cwd, fakeScript))) : undefined,
           voiceProviders: process.env.EXPLICAME_FAKE_VOICE ? [createFakeVoiceProvider()] : undefined,
         });
+        if (opts.video) await recordAll({ cwd, config, credentials, log }, join(result.dir, "guide.json"), config.languages);
       }),
     );
 
@@ -103,6 +123,12 @@ export function createProgram(): Command {
         log("OK");
       }),
     );
+
+  program
+    .command("record <guide>")
+    .description("graba la guía como MP4 con subtítulos · records the guide as an MP4 with subtitles")
+    .option("--lang <langs>", "es, en o all", "all")
+    .action((guidePath: string, opts: { lang: string }) => run((ctx) => recordAll(ctx, guidePath, langsOf(opts.lang, ctx.config))));
 
   program
     .command("login")

@@ -14,6 +14,12 @@ export interface SessionOptions {
   allowRequests?: AllowRule[];
   headless?: boolean;
   lang?: Lang;
+  viewport?: { width: number; height: number };
+  /** Folder where Playwright writes the video of the page (recording). */
+  recordVideoDir?: string;
+  launchArgs?: string[];
+  /** Runs on the context before any route or page exists (bindings, extra routes). */
+  beforePage?: (context: BrowserContext) => Promise<void>;
 }
 
 export interface Session {
@@ -21,6 +27,8 @@ export interface Session {
   startUrl: string;
   /** True while the page is still on the app's origin. */
   inApp(): boolean;
+  /** When the page was created, which is when its video starts. */
+  createdAt: number;
   page: Page;
   context: BrowserContext;
   blocked: BlockedRequest[];
@@ -41,19 +49,27 @@ export async function settle(page: Page, timeoutMs = 3000): Promise<void> {
 }
 
 export async function openSession(o: SessionOptions): Promise<Session> {
-  const browser = await chromium.launch({ headless: o.headless ?? true });
+  const browser = await chromium.launch({ headless: o.headless ?? true, args: o.launchArgs });
   try {
     const storageState = o.storageStatePath && existsSync(o.storageStatePath) ? o.storageStatePath : undefined;
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, storageState });
+    const viewport = o.viewport ?? { width: 1280, height: 800 };
+    const context = await browser.newContext({
+      viewport,
+      storageState,
+      recordVideo: o.recordVideoDir ? { dir: o.recordVideoDir, size: viewport } : undefined,
+    });
+    await o.beforePage?.(context);
     const blocked: BlockedRequest[] = [];
     await context.route("**/*", (route) => {
       const request = route.request();
-      if (isRequestAllowed(request.method(), request.url(), o.allowRequests)) return route.continue();
+      // fallback (not continue): lets routes registered earlier, like the recorder's, serve the request first.
+      if (isRequestAllowed(request.method(), request.url(), o.allowRequests)) return route.fallback();
       blocked.push({ method: request.method(), url: request.url() });
       return route.abort("blockedbyclient");
     });
     await context.addInitScript(DOM_RUNTIME);
     const page = await context.newPage();
+    const createdAt = Date.now();
     const goto = async (path: string) => {
       const url = new URL(path, o.appUrl).toString();
       try {
@@ -76,6 +92,7 @@ export async function openSession(o: SessionOptions): Promise<Session> {
       appUrl: o.appUrl,
       startUrl: o.startUrl,
       inApp,
+      createdAt,
       page,
       context,
       blocked,

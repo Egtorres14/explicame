@@ -25,6 +25,9 @@ const es = {
   "login.instructions": "Inicia sesión en la ventana que se abrió y cierra la pestaña cuando termines.",
   "login.saved": "Sesión guardada en {path}",
   "build.done": "Listo: {count} pasos en {langs}. Guía en {path}",
+  "record.noFfmpeg": "Para grabar el MP4 hace falta ffmpeg. Instálalo: Windows: winget install Gyan.FFmpeg · macOS: brew install ffmpeg · Linux: sudo apt install ffmpeg",
+  "record.noAudio": "El paso {index} no tiene audio en {lang}: genera la voz antes de grabar (explicame voice).",
+  "record.done": "Video listo: {path}",
   "player.hint": "Para verla en tu app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 } as const;
 
@@ -53,6 +56,9 @@ const en: Record<keyof typeof es, string> = {
   "login.instructions": "Log in in the window that opened and close the tab when you're done.",
   "login.saved": "Session saved at {path}",
   "build.done": "Done: {count} steps in {langs}. Guide at {path}",
+  "record.noFfmpeg": "Recording the MP4 needs ffmpeg. Install it: Windows: winget install Gyan.FFmpeg · macOS: brew install ffmpeg · Linux: sudo apt install ffmpeg",
+  "record.noAudio": "Step {index} has no audio in {lang}: generate the voice before recording (explicame voice).",
+  "record.done": "Video ready: {path}",
   "player.hint": "To see it in your app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 };
 
