@@ -2,12 +2,17 @@
   "name": "explicame-monorepo",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "examples/*"],
-  "engines": { "node": ">=20" },
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "npm run build -w explicame"
+    "build": "npm run build -w @explicame/player && npm run build -w explicame"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
