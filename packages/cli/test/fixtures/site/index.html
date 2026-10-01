@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head><meta charset="utf-8" /><title>Reportes</title></head>
+  <body>
+    <h1>Reportes</h1>
+    <section id="toolbar">
+      <button type="button" data-testid="filtro-fecha" onclick="document.getElementById('dlg').showModal()">Filtrar</button>
+      <a href="/help.html">Ayuda</a>
+    </section>
+    <section><h2>Ventas</h2><button type="button">Exportar</button></section>
+    <section><h2>Compras</h2><button type="button">Exportar</button></section>
+    <dialog id="dlg">
+      <form method="post" action="/api/preferences">
+        <label for="desde">Desde</label>
+        <input id="desde" type="date" />
+        <label>Agrupar por <select name="agrupar"><option>Día</option><option>Semana</option><option>Mes</option></select></label>
+        <button type="button" onclick="document.getElementById('dlg').close(); document.getElementById('estado').textContent = 'Filtro aplicado'">Aplicar</button>
+        <button>Guardar</button>
+      </form>
+    </dialog>
+    <p id="estado"></p>
+    <div id="lista">
+      <button type="button" onclick="this.parentElement.innerHTML = '&lt;button type=&quot;button&quot;&gt;Recargar lista&lt;/button&gt;'">Recargar lista</button>
+    </div>
+    <script>
+      fetch("/api/track", { method: "POST", body: "{}" }).catch(() => {});
+      fetch("/api/search", { method: "POST", body: "{}" }).catch(() => {});
+    </script>
+  </body>
+</html>
