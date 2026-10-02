@@ -4,7 +4,8 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "examples/*"
+    "examples/*",
+    "video"
   ],
   "engines": {
     "node": ">=20"
@@ -12,7 +13,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "npm run build -w @explicame/player && npm run build -w @explicame/panel && npm run build -w explicame"
+    "build": "npm run build -w @explicame/player && npm run build -w @explicame/panel && npm run build -w explicame",
+    "video": "npm run shots -w explicame-video && npm run render -w explicame-video --"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

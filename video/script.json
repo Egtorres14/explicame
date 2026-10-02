@@ -1,0 +1,45 @@
+{
+  "clip": { "guide": "filtrar-reportes-por-fecha", "untilStep": 5 },
+  "scenes": [
+    {
+      "id": "intro",
+      "chunks": [
+        { "es": "Cada funcionalidad nueva obliga a alguien a explicarla: grabar un video, escribir un manual o sentarse con cada persona.", "en": "Every new feature forces someone to explain it: record a video, write a manual, or sit down with each person." },
+        { "es": "Casi siempre llega tarde. ¿Y si la explicación se generara sola, a partir del código?", "en": "It almost always comes late. What if the explanation wrote itself, straight from the code?" }
+      ]
+    },
+    {
+      "id": "flow",
+      "chunks": [
+        { "es": "Eso hace explicame. Lee el cambio en tu código y abre tu app en un navegador real, para recorrerla como lo haría una persona.", "en": "That is what explicame does. It reads the change in your code and opens your app in a real browser, to walk through it the way a person would." },
+        { "es": "Con lo que ve, escribe el guion en español y en inglés, lo verifica paso a paso en la pantalla real y le pone voz.", "en": "From what it sees, it writes the script in Spanish and English, verifies every step on the real screen, and gives it a voice." },
+        { "es": "El resultado es una guía interactiva dentro de tu app y un video listo para compartir.", "en": "The result is an interactive guide inside your app and a video ready to share." }
+      ]
+    },
+    {
+      "id": "safety",
+      "chunks": [
+        { "es": "Y nada se guarda: los botones de guardar o borrar solo se señalan, y toda petición que escriba datos se bloquea.", "en": "And nothing gets saved: save or delete buttons are only pointed at, and every request that writes data is blocked." }
+      ]
+    },
+    {
+      "id": "modes",
+      "chunks": [
+        { "es": "Funciona de dos maneras: con tu propia cuenta, como plugin de Claude Code, o con una API key de Claude.", "en": "It works two ways: with your own account, as a Claude Code plugin, or with a Claude API key." },
+        { "es": "Todo se configura desde un panel local, con voces de ElevenLabs, Deepgram u OpenAI, o gratis con Piper.", "en": "Everything is set up from a local panel, with voices from ElevenLabs, Deepgram or OpenAI, or free with Piper." }
+      ]
+    },
+    {
+      "id": "demo",
+      "chunks": [
+        { "es": "Así se ve en la app de ejemplo. Esta guía la escribió Claude Code con explicame, y explicame la grabó.", "en": "Here it is on the demo app. Claude Code wrote this guide with explicame, and explicame recorded it." }
+      ]
+    },
+    {
+      "id": "outro",
+      "chunks": [
+        { "es": "explicame es de código abierto, con licencia MIT. Lo encuentras en GitHub, en Egtorres14 barra explicame.", "en": "explicame is open source and MIT licensed. Find it on GitHub at Egtorres14 slash explicame." }
+      ]
+    }
+  ]
+}

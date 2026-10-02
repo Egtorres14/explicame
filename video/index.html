@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>explicame · video</title>
+    <link rel="stylesheet" href="video.css" />
+    <script src="../node_modules/gsap/dist/gsap.min.js"></script>
+  </head>
+  <body>
+    <div id="stage">
+      <div class="glow"></div>
+      <div class="grid"></div>
+      <div id="logo" class="logo"><span class="dot"></span>explicame <span class="slash">/ explain-me</span></div>
+
+      <section id="s-intro" class="scene">
+        <div class="hero">
+          <h1 class="title">explicame <span class="slash">/ explain-me</span></h1>
+          <p class="subtitle" data-t="subtitle"></p>
+        </div>
+        <div class="cards">
+          <div class="card"><i data-icon="camera"></i><span data-t="video"></span></div>
+          <div class="card"><i data-icon="doc"></i><span data-t="manual"></span></div>
+          <div class="card"><i data-icon="people"></i><span data-t="oneOnOne"></span></div>
+        </div>
+        <div class="late">
+          <svg class="clock" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" /><line class="hand" x1="60" y1="60" x2="60" y2="20" /><line x1="60" y1="60" x2="86" y2="60" /></svg>
+          <span data-t="late"></span>
+        </div>
+        <p class="question" data-t="question"></p>
+      </section>
+
+      <section id="s-flow" class="scene">
+        <div class="details">
+          <div class="detail" id="d-diff">
+            <pre class="code"><span class="file">src/reportes/filtro.ts</span>
+<span class="add">+ export function FiltroPorFecha() {</span>
+<span class="add">+   return &lt;button data-testid="filtro-fecha"&gt;</span>
+<span class="add">+     Filtrar por fecha</span>
+<span class="add">+   &lt;/button&gt;;</span>
+<span class="ctx">  }</span></pre>
+          </div>
+          <div class="detail" id="d-browser">
+            <div class="window">
+              <div class="bar"><b></b><b></b><b></b><span>localhost:5173</span></div>
+              <div class="page">
+                <h3 data-t="reports"></h3>
+                <div class="toolbar"><span class="btn" data-t="filterBtn"></span><span class="ring"></span></div>
+                <div class="rows"><i></i><i></i><i></i></div>
+              </div>
+            </div>
+          </div>
+          <div class="detail" id="d-script">
+            <ol class="checks">
+              <li><span data-t="s1"></span><i data-icon="check"></i></li>
+              <li><span data-t="s2"></span><i data-icon="check"></i></li>
+              <li><span data-t="s3"></span><i data-icon="check"></i></li>
+            </ol>
+          </div>
+          <div class="detail" id="d-voice"><div class="wave"></div><span class="langs">ES · EN</span></div>
+          <div class="detail" id="d-output">
+            <div class="tile"><i data-icon="ring"></i><span data-t="inApp"></span></div>
+            <div class="tile"><i data-icon="play"></i><span data-t="mp4"></span></div>
+          </div>
+        </div>
+        <svg class="links" viewBox="0 0 1920 1080">
+          <path d="M363 670 H549" /><path d="M699 670 H885" /><path d="M1035 670 H1221" /><path d="M1371 670 H1557" />
+        </svg>
+        <div class="nodes">
+          <div class="node"><i data-icon="code"></i><span data-t="diff"></span></div>
+          <div class="node"><i data-icon="browser"></i><span data-t="explore"></span></div>
+          <div class="node"><i data-icon="check"></i><span data-t="script"></span></div>
+          <div class="node"><i data-icon="wave"></i><span data-t="voice"></span></div>
+          <div class="node"><i data-icon="play"></i><span data-t="output"></span></div>
+        </div>
+      </section>
+
+      <section id="s-safety" class="scene">
+        <h2 class="headline" data-t="safety"></h2>
+        <div class="shield"><i data-icon="shield"></i></div>
+        <div class="safety-items">
+          <div class="item"><span class="fake-btn" data-t="save"></span><span class="ring"></span><span class="note" data-t="pointed"></span></div>
+          <div class="item request"><code>POST /api/preferencias</code><span class="strike"></span><span class="badge" data-t="blocked"></span></div>
+        </div>
+      </section>
+
+      <section id="s-modes" class="scene">
+        <div class="modes">
+          <div class="mode">
+            <i data-icon="plug"></i>
+            <h3 data-t="plugin"></h3>
+            <p data-t="pluginSub"></p>
+            <code>&gt; /explicame:explicame</code>
+          </div>
+          <div class="mode">
+            <i data-icon="key"></i>
+            <h3 data-t="api"></h3>
+            <p data-t="apiSub"></p>
+            <code>$ explicame build --video</code>
+          </div>
+        </div>
+        <img class="panel-shot" alt="" />
+        <div class="chips">
+          <span>ElevenLabs</span><span>Deepgram</span><span>OpenAI</span><span class="free">Piper · <b data-t="free"></b></span><span class="free"><b data-t="own"></b></span>
+        </div>
+      </section>
+
+      <section id="s-demo" class="scene">
+        <div class="demo-head">
+          <h2 data-t="demoTitle"></h2>
+          <p data-t="demoSub"></p>
+        </div>
+        <div class="window big">
+          <div class="bar"><b></b><b></b><b></b><span>localhost:5173</span></div>
+          <video class="clip" muted preload="auto"></video>
+        </div>
+      </section>
+
+      <section id="s-outro" class="scene">
+        <h1 class="title">explicame <span class="slash">/ explain-me</span></h1>
+        <p class="tagline" data-t="open"></p>
+        <p class="url">github.com/Egtorres14/explicame</p>
+        <div class="chips"><span>ES · EN</span><span>Claude Code</span><span>MCP</span><span>Playwright</span></div>
+      </section>
+
+      <div id="caption" class="caption"></div>
+    </div>
+    <script src="video.js"></script>
+  </body>
+</html>

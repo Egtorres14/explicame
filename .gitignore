@@ -5,3 +5,5 @@ dist/
 examples/demo-app/dist/
 examples/demo-app/public/explicame/explicame-player.js
 *.log
+video/out/
+video/assets/
