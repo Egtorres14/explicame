@@ -1,11 +1,13 @@
+import type { LocalizedText } from "@explicame/core";
 import { VoiceError, type VoiceProvider } from "./provider.js";
 
-export function createElevenLabsProvider(o: { apiKey: string; model?: string; fetchImpl?: typeof fetch }): VoiceProvider {
+export function createElevenLabsProvider(o: { apiKey: string; model?: string; voices?: LocalizedText; fetchImpl?: typeof fetch }): VoiceProvider {
   const model = o.model ?? "eleven_v4";
   const doFetch = o.fetchImpl ?? fetch;
   return {
     id: "elevenlabs",
     model,
+    voiceFor: (lang) => o.voices?.[lang],
     async synthesize(request) {
       if (!request.voice) throw new VoiceError(`ElevenLabs needs a voice id for ${request.lang} (voice.voices.${request.lang})`);
       const response = await doFetch(

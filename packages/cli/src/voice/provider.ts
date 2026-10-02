@@ -13,6 +13,8 @@ export interface VoiceRequest {
 export interface VoiceProvider {
   readonly id: string;
   readonly model: string;
+  /** The voice this provider speaks with in a language: the configured one for the main provider, its own default otherwise. */
+  voiceFor?(lang: Lang): string | undefined;
   synthesize(request: VoiceRequest): Promise<Buffer>;
 }
 
@@ -36,20 +38,23 @@ export async function synthesizeWithCache(
   retries = 3,
   sleep: (ms: number) => Promise<void> = defaultSleep,
 ): Promise<{ audio: Buffer; provider: string }> {
+  // Each provider speaks with its own voice: a fallback never receives the main provider's voice ids.
+  const askFor = (provider: VoiceProvider): VoiceRequest => ({ ...request, voice: provider.voiceFor?.(request.lang) ?? request.voice });
   // Any provider's cached audio wins before a single network call, so a cached fallback never waits on a dead primary.
   for (const provider of providers) {
     try {
-      return { audio: await readFile(join(cacheDir, `${cacheKey(provider, request)}.mp3`)), provider: provider.id };
+      return { audio: await readFile(join(cacheDir, `${cacheKey(provider, askFor(provider))}.mp3`)), provider: provider.id };
     } catch {
       // not cached for this provider
     }
   }
   const errors: string[] = [];
   for (const provider of providers) {
-    const file = join(cacheDir, `${cacheKey(provider, request)}.mp3`);
+    const ask = askFor(provider);
+    const file = join(cacheDir, `${cacheKey(provider, ask)}.mp3`);
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
-        const audio = await provider.synthesize(request);
+        const audio = await provider.synthesize(ask);
         await mkdir(cacheDir, { recursive: true });
         await writeFile(file, audio);
         return { audio, provider: provider.id };
@@ -66,7 +71,6 @@ export interface VoiceGuideOptions {
   providers: VoiceProvider[];
   guideDir: string;
   cacheDir: string;
-  voices: LocalizedText;
   speed: number;
   retries?: number;
   sleep?: (ms: number) => Promise<void>;
@@ -83,7 +87,7 @@ export async function voiceGuide(guide: Guide, o: VoiceGuideOptions): Promise<Gu
       const text = step.narration[lang];
       if (!text) continue;
       try {
-        const result = await synthesizeWithCache(o.providers, { text, lang, voice: o.voices[lang], speed: o.speed }, o.cacheDir, o.retries ?? 3, o.sleep);
+        const result = await synthesizeWithCache(o.providers, { text, lang, speed: o.speed }, o.cacheDir, o.retries ?? 3, o.sleep);
         const relative = `audio/${lang}/${String(index + 1).padStart(2, "0")}.mp3`;
         const file = join(o.guideDir, relative);
         await mkdir(dirname(file), { recursive: true });

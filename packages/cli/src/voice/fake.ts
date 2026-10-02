@@ -21,6 +21,7 @@ export function createFakeVoiceProvider(): VoiceProvider {
   return {
     id: "fake",
     model: "silence",
+    voiceFor: () => undefined,
     async synthesize(request) {
       return silentMp3(Math.max(1, request.text.length / 15));
     },

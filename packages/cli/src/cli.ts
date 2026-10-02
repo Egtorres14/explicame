@@ -121,7 +121,7 @@ export function createProgram(): Command {
         const voiced = await voiceGuide(await readGuide(file), {
           providers: process.env.EXPLICAME_FAKE_VOICE ? [createFakeVoiceProvider()] : buildVoiceProviders(config, credentials),
           guideDir, cacheDir: resolve(explicameHome(), "cache", "voice"),
-          voices: config.voice.voices, speed: config.voice.speed, onWarn: log,
+          speed: config.voice.speed, onWarn: log,
         });
         await writeGuide(dirname(guideDir), voiced);
         log("OK");

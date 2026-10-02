@@ -178,7 +178,7 @@ async function publish(o: BuildOptions, verified: Guide, home: string, log: (mes
     if (providers.length === 0) log(t(lang, "voice.noProvider"));
     guide = await voiceGuide(guide, {
       providers, guideDir: dir, cacheDir: join(home, "cache", "voice"),
-      voices: o.config.voice.voices, speed: o.config.voice.speed, onWarn: log, lang,
+      speed: o.config.voice.speed, onWarn: log, lang,
     });
   }
   await writeGuide(outputRoot, guide);
