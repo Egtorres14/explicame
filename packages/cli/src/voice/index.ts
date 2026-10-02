@@ -1,11 +1,12 @@
 import type { Config } from "../config.js";
-import type { Credentials } from "../credentials.js";
+import { explicameHome, type Credentials } from "../credentials.js";
 import { findFfmpeg } from "../ffmpeg.js";
 import { createCommandProvider } from "./command.js";
 import { createDeepgramProvider } from "./deepgram.js";
 import { createElevenLabsProvider } from "./elevenlabs.js";
 import { createFakeVoiceProvider } from "./fake.js";
 import { createOpenAiProvider } from "./openai.js";
+import { createPiperProvider } from "./piper.js";
 import type { VoiceProvider } from "./provider.js";
 
 /**
@@ -13,8 +14,7 @@ import type { VoiceProvider } from "./provider.js";
  * fallbacks speak with their own defaults. ElevenLabs only works with configured voice ids, so it never
  * serves as a fallback.
  */
-// o.home is where Piper keeps its engine and voices (Task 3).
-export function buildVoiceProviders(config: Config, creds: Credentials, o: { home?: string } = {}): VoiceProvider[] {
+export function buildVoiceProviders(config: Config, creds: Credentials, o: { home?: string; log?: (message: string) => void } = {}): VoiceProvider[] {
   const ids = [config.voice.provider, ...config.voice.fallback.filter((id) => id !== config.voice.provider)];
   const providers: VoiceProvider[] = [];
   for (const id of ids) {
@@ -27,6 +27,9 @@ export function buildVoiceProviders(config: Config, creds: Credentials, o: { hom
     if (id === "openai" && creds.openai) providers.push(createOpenAiProvider({ apiKey: creds.openai, model, voices }));
     if (id === "command" && config.voice.command) {
       providers.push(createCommandProvider({ template: config.voice.command, voices, ffmpeg: () => findFfmpeg(config.uiLanguage) }));
+    }
+    if (id === "piper") {
+      providers.push(createPiperProvider({ home: o.home ?? explicameHome(), voices, ffmpeg: () => findFfmpeg(config.uiLanguage), log: o.log, lang: config.uiLanguage }));
     }
   }
   return providers;

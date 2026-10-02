@@ -31,6 +31,8 @@ const es = {
   "record.noFfmpeg": "Para grabar el MP4 hace falta ffmpeg. Instálalo: Windows: winget install Gyan.FFmpeg · macOS: brew install ffmpeg · Linux: sudo apt install ffmpeg",
   "record.noAudio": "El paso {index} no tiene audio en {lang}: genera la voz antes de grabar (explicame voice).",
   "record.done": "Video listo: {path}",
+  "piper.engine": "Descargando Piper {release} (unos 25 MB) en {dir}. Piper (MIT) trae espeak-ng (GPL-3.0); explicame lo ejecuta como un programa aparte.",
+  "piper.voice": "Descargando la voz de Piper {voice}…",
   "player.hint": "Para verla en tu app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 } as const;
 
@@ -65,6 +67,8 @@ const en: Record<keyof typeof es, string> = {
   "record.noFfmpeg": "Recording the MP4 needs ffmpeg. Install it: Windows: winget install Gyan.FFmpeg · macOS: brew install ffmpeg · Linux: sudo apt install ffmpeg",
   "record.noAudio": "Step {index} has no audio in {lang}: generate the voice before recording (explicame voice).",
   "record.done": "Video ready: {path}",
+  "piper.engine": "Downloading Piper {release} (about 25 MB) into {dir}. Piper (MIT) bundles espeak-ng (GPL-3.0); explicame runs it as a separate program.",
+  "piper.voice": "Downloading the Piper voice {voice}…",
   "player.hint": "To see it in your app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 };
 

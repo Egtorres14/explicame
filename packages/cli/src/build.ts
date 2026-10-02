@@ -174,7 +174,7 @@ async function publish(o: BuildOptions, verified: Guide, home: string, log: (mes
   const dir = join(outputRoot, verified.id);
   let guide = verified;
   if (o.voice !== false) {
-    const providers = o.voiceProviders ?? buildVoiceProviders(o.config, o.credentials, { home });
+    const providers = o.voiceProviders ?? buildVoiceProviders(o.config, o.credentials, { home, log });
     if (providers.length === 0) {
       // Without audio files the player narrates with speechSynthesis; record asks for real audio.
       log(t(lang, o.config.voice.provider === "browser" ? "voice.browser" : "voice.noProvider"));
