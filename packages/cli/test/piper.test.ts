@@ -9,7 +9,7 @@ import { download, ensurePiperEngine, createPiperProvider, piperAsset, piperVoic
 import { VoiceError } from "../src/voice/provider.js";
 
 const sha = (data: Uint8Array) => createHash("sha256").update(data).digest("hex");
-const respond = (data: Uint8Array | string) => vi.fn(async () => new Response(typeof data === "string" ? data : new Uint8Array(data)));
+const respond = (data: Uint8Array | string) => vi.fn(async (_url: string) => new Response(typeof data === "string" ? data : new Uint8Array(data)));
 
 /** One second of silent 16-bit mono WAV, like Piper writes. */
 function wav(): Buffer {
