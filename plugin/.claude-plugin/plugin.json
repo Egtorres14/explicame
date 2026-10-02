@@ -1,0 +1,14 @@
+{
+  "name": "explicame",
+  "displayName": "explicame / explain-me",
+  "version": "0.1.0",
+  "description": "Guía de onboarding interactiva y narrada (ES/EN) para cada funcionalidad nueva, generada por Claude Code a partir del diff y verificada en la app real · Narrated, bilingual in-app onboarding for every new feature",
+  "author": {
+    "name": "Gabriel Torres",
+    "url": "https://github.com/Egtorres14"
+  },
+  "homepage": "https://github.com/Egtorres14/explicame",
+  "repository": "https://github.com/Egtorres14/explicame",
+  "license": "MIT",
+  "keywords": ["onboarding", "tutorial", "guide", "voice", "playwright", "mcp"]
+}
