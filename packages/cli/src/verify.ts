@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { repairMessage, t, type Guide, type Lang, type Step } from "@explicame/core";
 import { observe, performAction, resolveHandle } from "./browser/page.js";
 import type { Session } from "./browser/session.js";
+import { throwIfCancelled } from "./cancel.js";
 import type { LlmDriver, ToolResult } from "./generate/driver.js";
 import { executeCall, type ExplorationState } from "./generate/loop.js";
 
@@ -90,6 +91,7 @@ export interface RepairOptions {
   log?: (message: string) => void;
   /** Language of the messages for the person running the CLI. */
   lang?: Lang;
+  signal?: AbortSignal;
 }
 
 /** Verifies; for each failing step the model gets one chance to replace it, then everything is verified again. */
@@ -100,6 +102,7 @@ export async function verifyAndRepair(o: RepairOptions): Promise<Guide> {
   let pending = o.pendingResults;
   const attempted = new Set<number>();
   for (;;) {
+    throwIfCancelled(o.signal, lang);
     const failure = (await verifyGuide(guide, o.open, { timeoutMs, reportDir: o.reportDir }))[0];
     if (!failure) return guide;
     if (attempted.has(failure.index)) throw new VerifyError(failure, lang);

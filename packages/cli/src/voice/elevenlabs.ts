@@ -1,5 +1,5 @@
 import type { LocalizedText } from "@explicame/core";
-import { VoiceError, type VoiceProvider } from "./provider.js";
+import { retryableStatus, VoiceError, type VoiceProvider } from "./provider.js";
 
 export function createElevenLabsProvider(o: { apiKey: string; model?: string; voices?: LocalizedText; fetchImpl?: typeof fetch }): VoiceProvider {
   const model = o.model ?? "eleven_v4";
@@ -9,7 +9,7 @@ export function createElevenLabsProvider(o: { apiKey: string; model?: string; vo
     model,
     voiceFor: (lang) => o.voices?.[lang],
     async synthesize(request) {
-      if (!request.voice) throw new VoiceError(`ElevenLabs needs a voice id for ${request.lang} (voice.voices.${request.lang})`);
+      if (!request.voice) throw new VoiceError(`ElevenLabs needs a voice id for ${request.lang} (voice.voices.${request.lang})`, false);
       const response = await doFetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(request.voice)}?output_format=mp3_44100_128`,
         {
@@ -23,7 +23,7 @@ export function createElevenLabsProvider(o: { apiKey: string; model?: string; vo
           }),
         },
       );
-      if (!response.ok) throw new VoiceError(`ElevenLabs ${response.status}: ${(await response.text()).slice(0, 200)}`);
+      if (!response.ok) throw new VoiceError(`ElevenLabs ${response.status}: ${(await response.text()).slice(0, 200)}`, retryableStatus(response.status));
       return Buffer.from(await response.arrayBuffer());
     },
   };

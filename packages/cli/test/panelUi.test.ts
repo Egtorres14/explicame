@@ -86,4 +86,14 @@ describe("panel page", () => {
     await expect.poll(() => page.locator("#results summary").first().textContent()).toContain("Filtro por fecha");
     expect(await page.locator("#results audio").count()).toBe(4);
   }, 90_000);
+
+  it("keeps showing a running generation after the page re-renders, and after a reload", async () => {
+    await page.getByRole("button", { name: "Generar guía" }).click();
+    await page.getByRole("button", { name: "EN", exact: true }).click();
+    await expect.poll(() => page.locator("#generate .status").textContent(), { timeout: 60_000 }).toBe("Done");
+    expect(await page.locator("#generate .shots img").count()).toBe(2);
+    await page.reload();
+    await expect.poll(() => page.locator("#generate .status").textContent()).toBe("Listo");
+    expect(await page.locator("#generate .shots img").count()).toBe(2);
+  }, 90_000);
 });

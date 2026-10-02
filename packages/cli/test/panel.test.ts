@@ -20,18 +20,32 @@ let site: TestServer;
 let cwd: string;
 let home: string;
 let panel: Panel;
-let release: () => void = () => {};
-let markStarted: () => void = () => {};
-const started = new Promise<void>((done) => (markStarted = done));
+interface Gate {
+  started: Promise<void>;
+  markStarted(): void;
+  released: Promise<void>;
+  release(): void;
+}
+function newGate(): Gate {
+  let markStarted!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>((done) => (markStarted = done));
+  const released = new Promise<void>((done) => (release = done));
+  return { started, markStarted, released, release };
+}
+let gate = newGate();
+/** What the AI does once released: fail, or ask to observe (a step where a stop request is noticed). */
+let afterRelease: "throw" | "observe" = "throw";
 const fetchImpl = vi.fn(async () => Response.json({ voice_id: "cloned123", requires_verification: false }));
 
 /** An AI that says when it was called and then waits until the test releases it, to see a job running. */
 const waitingDriver = (): LlmDriver => ({
   id: "fake",
   async start() {
-    markStarted();
-    await new Promise<void>((done) => (release = done));
-    throw new Error("released");
+    gate.markStarted();
+    await gate.released;
+    if (afterRelease === "throw") throw new Error("released");
+    return { calls: [{ id: "c1", name: "observe", input: {} }], text: "", stop: "tool_use" as const };
   },
   async reply() {
     throw new Error("unused");
@@ -57,7 +71,7 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
-  release();
+  gate.release();
   await panel.close();
   await site.close();
 });
@@ -148,13 +162,28 @@ describe("panel server", () => {
     expect(first.status).toBe(202);
     const { id } = (await first.json()) as { id: string };
     expect((await api("/api/jobs", { method: "POST", body: JSON.stringify({ kind: "build" }) })).status).toBe(409);
-    await started;
-    release();
+    await gate.started;
+    gate.release();
     const stream = await fetch(`${origin()}/api/jobs/${id}/events?t=${panel.token}`);
     expect(stream.headers.get("content-type")).toContain("text/event-stream");
     const text = await stream.text();
     expect(text).toContain('"type":"error"');
     expect(text).toContain("released");
     expect(existsSync(join(cwd, ".explicame", "reports"))).toBe(true);
+    expect(text).toMatch(/^id: 0$/m);
+  });
+
+  it("stops a running job when asked", async () => {
+    gate = newGate();
+    afterRelease = "observe";
+    const job = await api("/api/jobs", { method: "POST", body: JSON.stringify({ kind: "build" }) });
+    expect(job.status).toBe(202);
+    const { id } = (await job.json()) as { id: string };
+    await gate.started;
+    expect((await api(`/api/jobs/${id}`, { method: "DELETE" })).status).toBe(202);
+    gate.release();
+    const text = await (await fetch(`${origin()}/api/jobs/${id}/events?t=${panel.token}`)).text();
+    expect(text).toContain("Generación detenida.");
+    expect((await api("/api/jobs/ffffffffffff", { method: "DELETE" })).status).toBe(404);
   });
 });

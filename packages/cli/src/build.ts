@@ -14,6 +14,7 @@ import type { LlmDriver, Usage } from "./generate/driver.js";
 import { LoopError, runExploration, type ExplorationResult } from "./generate/loop.js";
 import { readGuide, slugify, writeGuide } from "./output.js";
 import { copyPlayer } from "./player.js";
+import { throwIfCancelled } from "./cancel.js";
 import { writeReport, writeReportSync } from "./report.js";
 import { verifyAndRepair } from "./verify.js";
 import { buildVoiceProviders } from "./voice/index.js";
@@ -38,6 +39,8 @@ export interface BuildOptions {
   log?: (message: string) => void;
   /** Receives a JPEG of the screen after every step the AI adds (live progress in the panel). */
   onShot?: (jpeg: Buffer) => void;
+  /** Stops the generation between steps (the panel's Stop button). */
+  signal?: AbortSignal;
 }
 
 export interface BuildResult {
@@ -113,6 +116,7 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
   if (o.id !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(o.id)) throw new ConfigError(t(lang, "config.invalidId", { id: o.id }));
   // In plugin mode Claude Code writes the guide through `explicame mcp`; only a scripted driver may generate here.
   if (o.config.mode === "plugin" && !o.driver) throw new ConfigError(t(lang, "build.pluginMode"));
+  throwIfCancelled(o.signal, lang);
   const home = o.home ?? explicameHome();
   const context = await getChangeContext({
     cwd: o.cwd, base: o.base ?? o.config.base, head: o.head ?? "HEAD",
@@ -145,7 +149,16 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
     exploration = await runExploration({
       driver, session, languages: o.config.languages, maxSteps: o.config.maxSteps, context,
       appUrl: o.config.appUrl, startUrl: o.config.startUrl, onEvent: (event) => log(event.message), lang,
-      afterStep: o.onShot ? async () => o.onShot?.(await session.page.screenshot({ type: "jpeg", quality: 60 })) : undefined,
+      afterStep: o.onShot
+        ? async () => {
+            try {
+              o.onShot?.(await session.page.screenshot({ type: "jpeg", quality: 60 }));
+            } catch {
+              // A progress picture is cosmetic: it never stops a generation that is already being paid for.
+            }
+          }
+        : undefined,
+      signal: o.signal,
     });
   } finally {
     await session.close();
@@ -155,11 +168,12 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
     id: o.id, languages: o.config.languages, title: exploration.title, steps: exploration.steps, startUrl: o.config.startUrl,
     source: { base: context.base, head: context.head, commit: context.commit, generatedBy: driver.id, model: driver.model },
   });
-  guide = await verifyAndRepair({ guide, driver, pendingResults: exploration.pendingResults, open, log, reportDir, lang });
+  guide = await verifyAndRepair({ guide, driver, pendingResults: exploration.pendingResults, open, log, reportDir, lang, signal: o.signal });
   return publish(o, guide, home, log, driver.usage());
 }
 
 async function runFromGuide(o: BuildOptions, path: string, log: (message: string) => void): Promise<BuildResult> {
+  throwIfCancelled(o.signal, o.config.uiLanguage);
   const file = resolve(o.cwd, path);
   let guide: Guide;
   try {
@@ -184,10 +198,11 @@ async function publish(o: BuildOptions, verified: Guide, home: string, log: (mes
     } else {
       guide = await voiceGuide(guide, {
         providers, guideDir: dir, cacheDir: join(home, "cache", "voice"),
-        speed: o.config.voice.speed, onWarn: log, lang,
+        speed: o.config.voice.speed, onWarn: log, lang, signal: o.signal,
       });
     }
   }
+  throwIfCancelled(o.signal, lang);
   await writeGuide(outputRoot, guide);
   await copyPlayer(outputRoot);
   log(t(lang, "player.hint"));

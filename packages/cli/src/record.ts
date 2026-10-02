@@ -8,6 +8,7 @@ import { openSession } from "./browser/session.js";
 import { sessionPath } from "./build.js";
 import { ConfigError, type Config } from "./config.js";
 import { findFfmpeg } from "./ffmpeg.js";
+import { throwIfCancelled } from "./cancel.js";
 import { readGuide } from "./output.js";
 import { playerBundlePath } from "./player.js";
 
@@ -177,6 +178,7 @@ export async function recordLanguages(o: {
   home: string;
   langs?: Lang[];
   log: (message: string) => void;
+  signal?: AbortSignal;
 }): Promise<string[]> {
   const guide = await readGuide(o.guidePath);
   const wanted = o.langs ?? guide.languages;
@@ -184,6 +186,7 @@ export async function recordLanguages(o: {
   if (unknown.length) throw new ConfigError(t(o.config.uiLanguage, "record.badLang", { langs: unknown.join(", "), valid: LANGUAGES.join(", ") }));
   const videos: string[] = [];
   for (const lang of wanted.filter((l) => guide.languages.includes(l))) {
+    throwIfCancelled(o.signal, o.config.uiLanguage);
     const result = await recordGuide({
       guide, guidesRoot: dirname(dirname(o.guidePath)), appUrl: o.config.appUrl, lang,
       outDir: resolve(o.cwd, o.config.videoDir), allowRequests: o.config.safety.allowRequests,

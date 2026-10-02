@@ -34,7 +34,7 @@ export function piperAsset(platform: NodeJS.Platform, arch: string): PiperAsset 
   if (platform === "linux" && arch === "arm64") {
     return { file: "piper_linux_aarch64.tar.gz", sha256: "fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb", exe: "piper" };
   }
-  throw new VoiceError(`Piper has no working build for ${platform}/${arch}: use voice.provider "command" with Piper for Python (pip install piper-tts), or a cloud voice.`);
+  throw new VoiceError(`Piper has no working build for ${platform}/${arch}: use voice.provider "command" with Piper for Python (pip install piper-tts), or a cloud voice.`, false);
 }
 
 /** Default voices with a clean license chain: LJ Speech is public domain; carlfm was trained from scratch on public-domain data. */
@@ -51,7 +51,7 @@ const CHECKED_VOICES: Record<string, string> = {
 /** Where a catalog voice lives: "es_MX-ald-medium" → es/es_MX/ald/medium/es_MX-ald-medium.onnx at the pinned revision. */
 export function piperVoiceUrls(name: string): { onnx: string; json: string; sha256?: string } {
   const match = /^([a-z]{2,3})_([A-Z]{2})-([a-z0-9_]+)-(x_low|low|medium|high)$/.exec(name);
-  if (!match) throw new VoiceError(`"${name}" is not a Piper voice name such as es_MX-ald-medium.`);
+  if (!match) throw new VoiceError(`"${name}" is not a Piper voice name such as es_MX-ald-medium.`, false);
   const [, family, region, speaker, quality] = match;
   const onnx = `${VOICES_BASE}/${family}/${family}_${region}/${speaker}/${quality}/${name}.onnx`;
   return { onnx, json: `${onnx}.json`, sha256: CHECKED_VOICES[name] };
@@ -191,11 +191,11 @@ export function createPiperProvider(o: EngineOptions & { voices?: LocalizedText;
         } catch (error) {
           const code = (error as { code?: unknown }).code;
           if (typeof code === "number" && MISSING_DLL.has(code)) {
-            throw new VoiceError("Piper needs the Microsoft Visual C++ runtime: install it from https://aka.ms/vs/17/release/vc_redist.x64.exe");
+            throw new VoiceError("Piper needs the Microsoft Visual C++ runtime: install it from https://aka.ms/vs/17/release/vc_redist.x64.exe", false);
           }
-          throw new VoiceError(`Piper failed: ${((error as Error).message.split("\n")[0] ?? "").slice(0, 200)}`);
+          throw new VoiceError(`Piper failed: ${((error as Error).message.split("\n")[0] ?? "").slice(0, 200)}`, false);
         }
-        if (!existsSync(wav)) throw new VoiceError("Piper wrote no audio.");
+        if (!existsSync(wav)) throw new VoiceError("Piper wrote no audio.", false);
         return await toMp3(wav, `${wav}.mp3`, await o.ffmpeg());
       } finally {
         await rm(wav, { force: true });

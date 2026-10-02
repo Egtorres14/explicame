@@ -33,7 +33,7 @@ export function splitCommand(template: string): string[] {
       started = true;
     }
   }
-  if (quote) throw new VoiceError(`voice.command has an unclosed quote: ${template}`);
+  if (quote) throw new VoiceError(`voice.command has an unclosed quote: ${template}`, false);
   if (started) args.push(current);
   return args;
 }
@@ -45,7 +45,7 @@ export function splitCommand(template: string): string[] {
  */
 export function createCommandProvider(o: { template: string; voices?: LocalizedText; ffmpeg: () => Promise<string>; timeoutMs?: number }): VoiceProvider {
   const parts = splitCommand(o.template);
-  if (parts.length === 0) throw new VoiceError("voice.command is empty");
+  if (parts.length === 0) throw new VoiceError("voice.command is empty", false);
   return {
     id: "command",
     model: createHash("sha256").update(o.template).digest("hex").slice(0, 12),
@@ -64,11 +64,11 @@ export function createCommandProvider(o: { template: string; voices?: LocalizedT
         try {
           await run(file!, args, { timeout: o.timeoutMs ?? 120_000, windowsHide: true });
         } catch (error) {
-          throw new VoiceError(`voice.command failed: ${((error as Error).message.split("\n")[0] ?? "").slice(0, 200)}`);
+          throw new VoiceError(`voice.command failed: ${((error as Error).message.split("\n")[0] ?? "").slice(0, 200)}`, false);
         }
         if (existsSync(outMp3)) return await readFile(outMp3);
         if (existsSync(out)) return await toMp3(out, join(dir, "converted.mp3"), await o.ffmpeg());
-        throw new VoiceError("voice.command wrote neither {out} nor {outMp3}");
+        throw new VoiceError("voice.command wrote neither {out} nor {outMp3}", false);
       } finally {
         await rm(dir, { recursive: true, force: true });
       }

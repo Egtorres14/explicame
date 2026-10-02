@@ -1,5 +1,5 @@
 import type { Lang, LocalizedText } from "@explicame/core";
-import { VoiceError, type VoiceProvider } from "./provider.js";
+import { retryableStatus, VoiceError, type VoiceProvider } from "./provider.js";
 
 /** Aura-2 voices used when none is configured: a Colombian Spanish voice and a US English one. */
 export const DEEPGRAM_VOICES: Record<Lang, string> = { es: "aura-2-celeste-es", en: "aura-2-thalia-en" };
@@ -18,7 +18,7 @@ export function createDeepgramProvider(o: { apiKey: string; voices?: LocalizedTe
         headers: { Authorization: `Token ${o.apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({ text: request.text }),
       });
-      if (!response.ok) throw new VoiceError(`Deepgram ${response.status}: ${(await response.text()).slice(0, 200)}`);
+      if (!response.ok) throw new VoiceError(`Deepgram ${response.status}: ${(await response.text()).slice(0, 200)}`, retryableStatus(response.status));
       return Buffer.from(await response.arrayBuffer());
     },
   };

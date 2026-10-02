@@ -34,6 +34,7 @@ interface State {
   configError: string | null;
   credentials: Record<CredentialName, KeyStatus>;
   guides: GuideInfo[];
+  job: { id: string; running: boolean } | null;
 }
 type JobEvent = { type: "log"; message: string } | { type: "shot"; data: string } | { type: "done"; guide: string; videos: string[] } | { type: "error"; message: string };
 
@@ -43,6 +44,18 @@ const KEY_OF: Partial<Record<string, CredentialName>> = { elevenlabs: "elevenlab
 
 let lang: UiLang = "es";
 let state: State;
+
+/** The generation in progress (or the last one) lives outside render(), so re-rendering never loses it. */
+interface JobView {
+  id: string;
+  phase: "running" | "done" | "failed";
+  error: string;
+  logs: string[];
+  shots: string[];
+  seen: number;
+  source: EventSource | null;
+}
+let job: JobView | null = null;
 
 type Child = Node | string | null | false | undefined;
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string | undefined> = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
@@ -240,7 +253,7 @@ function voiceSection(): HTMLElement {
     v.provider === "command" ? field(tr("command"), command) : null,
     v.provider === "command" ? el("p", { class: "hint" }, tr("commandHelp")) : null,
     field(`${tr("speed")} (${v.speed}×)`, speed),
-    el("fieldset", {}, el("legend", {}, tr("fallback")), ...fallbacks.map(([, [label]]) => label)),
+    isBrowser ? null : el("fieldset", {}, el("legend", {}, tr("fallback")), ...fallbacks.map(([, [label]]) => label)),
     el("div", { class: "actions" }, button(tr("save"), saveVoice)),
     v.provider === "elevenlabs" ? cloneBox(voices) : null,
   );
@@ -268,31 +281,69 @@ function titleOf(guide: GuideInfo): string {
   return guide.title[lang] ?? Object.values(guide.title)[0] ?? guide.id;
 }
 
+function jobStatus(view: JobView): string {
+  return view.phase === "running" ? tr("running") : view.phase === "done" ? tr("done") : tr("failed", { error: view.error });
+}
+
+function jobNodes(view: JobView): Node[] {
+  const stop = async () => {
+    try {
+      await api("DELETE", `/api/jobs/${view.id}`);
+      toast(tr("stopping"));
+    } catch (error) {
+      toast(failMessage(error), true);
+    }
+  };
+  const nodes: Child[] = [
+    el("p", { class: view.phase === "failed" ? "status error" : "status", role: "status" }, jobStatus(view)),
+    view.phase === "running" ? el("div", { class: "actions" }, button(tr("stop"), stop, "secondary")) : null,
+    el("ol", { class: "log" }, ...view.logs.map((line) => el("li", {}, line))),
+    el("div", { class: "shots" }, ...view.shots.map((data) => el("img", { src: `data:image/jpeg;base64,${data}`, alt: "" }))),
+  ];
+  return nodes.filter((node): node is Node => node instanceof Node);
+}
+
+function paintJob(): void {
+  const box = document.getElementById("job");
+  if (box && job) box.replaceChildren(...jobNodes(job));
+}
+
+/** Follows a job's events; the server replays them from the start, so this also works after a reload. */
+function attach(id: string): void {
+  job?.source?.close();
+  const view: JobView = { id, phase: "running", error: "", logs: [], shots: [], seen: 0, source: null };
+  job = view;
+  const source = new EventSource(withToken(`/api/jobs/${id}/events`));
+  view.source = source;
+  source.onmessage = (message) => {
+    // After a reconnection the server replays everything: skip what is already on screen.
+    const index = Number(message.lastEventId);
+    if (Number.isInteger(index) && index < view.seen) return;
+    view.seen = Number.isInteger(index) ? index + 1 : view.seen + 1;
+    const event = JSON.parse(message.data as string) as JobEvent;
+    if (event.type === "log") view.logs.push(event.message);
+    if (event.type === "shot") view.shots.push(event.data);
+    if (event.type === "done" || event.type === "error") {
+      source.close();
+      view.source = null;
+      view.phase = event.type === "done" ? "done" : "failed";
+      view.error = event.type === "error" ? event.message : "";
+      void refreshResults();
+    }
+    if (job === view) paintJob();
+  };
+  paintJob();
+}
+
 function generateSection(): HTMLElement {
   const c = state.config;
-  const status = el("p", { class: "status", role: "status" });
-  const log = el("ol", { class: "log" });
-  const shots = el("div", { class: "shots" });
   const [videoLabel, video] = check(tr("video"), false);
   const start = async (request: Record<string, unknown>) => {
-    log.replaceChildren();
-    shots.replaceChildren();
-    status.textContent = tr("running");
     try {
       const { id } = await api<{ id: string }>("POST", "/api/jobs", request);
-      const source = new EventSource(withToken(`/api/jobs/${id}/events`));
-      source.onmessage = (message) => {
-        const event = JSON.parse(message.data as string) as JobEvent;
-        if (event.type === "log") log.append(el("li", {}, event.message));
-        if (event.type === "shot") shots.append(el("img", { src: `data:image/jpeg;base64,${event.data}`, alt: "" }));
-        if (event.type === "done" || event.type === "error") {
-          source.close();
-          status.textContent = event.type === "done" ? tr("done") : tr("failed", { error: event.message });
-          void refreshResults();
-        }
-      };
+      attach(id);
     } catch (error) {
-      status.textContent = failMessage(error);
+      toast(failMessage(error), true);
     }
   };
   let body: Child[];
@@ -314,7 +365,7 @@ function generateSection(): HTMLElement {
       el("div", { class: "actions" }, button(tr("voiceOnly"), () => (guide.value ? start({ kind: "from-guide", guide: guide.value, video: video.checked }) : undefined))),
     ];
   }
-  return section("generate", "generate", ...body, status, log, shots);
+  return section("generate", "generate", ...body, el("div", { id: "job" }, ...(job ? jobNodes(job) : [])));
 }
 
 function guideCard(guide: GuideInfo): HTMLElement {
@@ -385,6 +436,7 @@ async function main(): Promise<void> {
     state = await api<State>("GET", "/api/state");
     lang = state.config.uiLanguage;
     render();
+    if (state.job) attach(state.job.id);
   } catch (error) {
     document.getElementById("app")!.replaceChildren(el("p", { class: "status error" }, failMessage(error)));
   }

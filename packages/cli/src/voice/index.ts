@@ -15,6 +15,8 @@ import type { VoiceProvider } from "./provider.js";
  * serves as a fallback.
  */
 export function buildVoiceProviders(config: Config, creds: Credentials, o: { home?: string; log?: (message: string) => void } = {}): VoiceProvider[] {
+  // Choosing the free browser voice must never bill a fallback: it makes no audio files at all.
+  if (config.voice.provider === "browser") return [];
   const ids = [config.voice.provider, ...config.voice.fallback.filter((id) => id !== config.voice.provider)];
   const providers: VoiceProvider[] = [];
   for (const id of ids) {

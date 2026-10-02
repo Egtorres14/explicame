@@ -69,6 +69,24 @@ describe("build guards", () => {
     for (const shot of shots) expect([shot[0], shot[1]]).toEqual([0xff, 0xd8]);
   });
 
+  it("keeps generating when a progress picture cannot be taken", async () => {
+    const driver = createFakeDriver({
+      turns: [
+        [{ name: "observe", input: {} }],
+        [{ name: "add_step", input: { narration: { es: "Abre el filtro.", en: "Open the filter." }, element: { name: "Filtrar" }, action: "click", value: null, url: null, opens: "dialog" } }],
+        [{ name: "finish", input: { title: { es: "Sin capturas", en: "No shots" } } }],
+      ],
+    });
+    const config = ConfigSchema.parse({ appUrl: server.url, outputDir: join(cwd, "out-noshots"), voice: { provider: "fake" } });
+    const result = await build({
+      cwd, config, credentials: {}, diffFile: "x.patch", driver, voiceProviders: [createFakeVoiceProvider()], home,
+      onShot: () => {
+        throw new Error("screenshot failed");
+      },
+    });
+    expect(result.guide.steps).toHaveLength(1);
+  });
+
   it("says where the failure report is, in the UI language", async () => {
     const logs: string[] = [];
     const driver = createFakeDriver({ turns: [[{ name: "observe", input: {} }]] });

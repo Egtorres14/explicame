@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,7 +35,7 @@ describe("synthesizeWithCache", () => {
     const again = await synthesizeWithCache([down, fake], request, dir, 3, noSleep);
     expect(again.audio.equals(first.audio)).toBe(true);
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(down.calls).toBe(3); // the cached fallback answered without retrying the dead primary
+    expect(down.calls).toBe(6); // the main provider is always tried first; the fallback answers from its cache
     expect(await readdir(dir)).toEqual([`${cacheKey(fake, request)}.mp3`]);
   });
 
@@ -175,5 +175,44 @@ describe("ElevenLabs voice cloning", () => {
     const form = init.body as FormData;
     expect(form.get("name")).toBe("Gabriel");
     expect(form.getAll("files")).toHaveLength(1);
+  });
+});
+
+describe("review fixes", () => {
+  it("never bills a fallback when the browser voice is chosen", () => {
+    const config = ConfigSchema.parse({ voice: { provider: "browser", fallback: ["deepgram", "openai"] } });
+    expect(buildVoiceProviders(config, { deepgram: "d", openai: "o" })).toEqual([]);
+  });
+
+  it("prefers the main provider over audio a fallback cached earlier", async () => {
+    const request = { text: "Hola", lang: "es" as const, speed: 1 };
+    const old: VoiceProvider = { id: "old", model: "m", async synthesize() { throw new VoiceError("unused"); } };
+    await writeFile(join(dir, `${cacheKey(old, request)}.mp3`), Buffer.from([1, 2]));
+    const result = await synthesizeWithCache([createFakeVoiceProvider(), old], request, dir, 1, noSleep);
+    expect(result.provider).toBe("fake");
+  });
+
+  it("does not retry a refusal and says why the voice failed, once", async () => {
+    let calls = 0;
+    const refusing: VoiceProvider = { id: "piper", model: "m", async synthesize() { calls++; throw new VoiceError("Piper has no working build for darwin/arm64", false); } };
+    await expect(synthesizeWithCache([refusing], { text: "x", lang: "es", speed: 1 }, dir, 3, noSleep)).rejects.toThrow(/darwin/);
+    expect(calls).toBe(1);
+    const onWarn = vi.fn();
+    const guide: Guide = {
+      schemaVersion: 1, id: "g", languages: ["es", "en"], title: { es: "G", en: "G" }, startUrl: "/",
+      steps: [{ narration: { es: "Uno.", en: "One." } }, { narration: { es: "Dos.", en: "Two." } }],
+      source: { base: "a", head: "b", commit: "c", generatedBy: "fake", createdAt: "2026-10-01T00:00:00.000Z" },
+    };
+    const voiced = await voiceGuide(guide, { providers: [refusing], guideDir: dir, cacheDir: join(dir, "cache"), speed: 1, retries: 3, sleep: noSleep, onWarn, lang: "es" });
+    expect(voiced.steps.every((step) => step.audio === undefined)).toBe(true);
+    expect(onWarn).toHaveBeenCalledTimes(1);
+    expect(onWarn.mock.calls[0]![0]).toContain("Piper has no working build for darwin/arm64");
+  });
+
+  it("asks gpt-4o-mini-tts for the pace in words, since it ignores speed", async () => {
+    const fetchImpl = vi.fn(async () => new Response(new Uint8Array([1]), { status: 200 }));
+    await createOpenAiProvider({ apiKey: "k", fetchImpl: fetchImpl as unknown as typeof fetch }).synthesize({ text: "Hola", lang: "es", speed: 1.25 });
+    const body = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string) as { instructions: string };
+    expect(body.instructions).toContain("1.25");
   });
 });

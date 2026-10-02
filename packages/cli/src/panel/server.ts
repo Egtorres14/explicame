@@ -50,6 +50,7 @@ interface Job {
   events: JobEvent[];
   listeners: Set<(event: JobEvent) => void>;
   finished: boolean;
+  controller: AbortController;
 }
 
 class HttpError extends Error {
@@ -221,7 +222,7 @@ export async function startPanel(o: PanelOptions): Promise<Panel> {
     };
   }
 
-  async function runJob(request: JobRequest, emit: (event: JobEvent) => void): Promise<{ guide: string; videos: string[] }> {
+  async function runJob(request: JobRequest, emit: (event: JobEvent) => void, signal: AbortSignal): Promise<{ guide: string; videos: string[] }> {
     const current = await config();
     const log = (message: string) => emit({ type: "log", message });
     const fromGuide = request.kind === "from-guide" ? join(resolve(o.cwd, current.outputDir), request.guide!, "guide.json") : undefined;
@@ -237,21 +238,22 @@ export async function startPanel(o: PanelOptions): Promise<Panel> {
       fromGuide,
       driver: o.driver?.(),
       voiceProviders: o.voiceProviders?.(),
+      signal,
     });
     const videos = request.video
-      ? await recordLanguages({ guidePath: join(result.dir, "guide.json"), config: current, cwd: o.cwd, home: o.home, log })
+      ? await recordLanguages({ guidePath: join(result.dir, "guide.json"), config: current, cwd: o.cwd, home: o.home, log, signal })
       : [];
     return { guide: result.guide.id, videos: videos.map((file) => basename(file)) };
   }
 
   function startJob(request: JobRequest): Job {
-    const current: Job = { id: randomBytes(6).toString("hex"), events: [], listeners: new Set(), finished: false };
+    const current: Job = { id: randomBytes(6).toString("hex"), events: [], listeners: new Set(), finished: false, controller: new AbortController() };
     const emit = (event: JobEvent) => {
       current.events.push(event);
       for (const listener of current.listeners) listener(event);
     };
     job = current;
-    void runJob(request, emit).then(
+    void runJob(request, emit, current.controller.signal).then(
       (result) => {
         current.finished = true;
         emit({ type: "done", ...result });
@@ -266,14 +268,15 @@ export async function startPanel(o: PanelOptions): Promise<Panel> {
 
   function streamJob(req: IncomingMessage, res: ServerResponse, current: Job): void {
     res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store", connection: "keep-alive" });
-    const write = (event: JobEvent) => res.write(`data: ${JSON.stringify(event)}\n\n`);
-    for (const event of current.events) write(event);
+    // Every event carries its index as id, so a page that reconnects can skip what it already showed.
+    const write = (event: JobEvent, index: number) => res.write(`id: ${index}\ndata: ${JSON.stringify(event)}\n\n`);
+    current.events.forEach(write);
     if (current.finished) {
       res.end();
       return;
     }
     const listener = (event: JobEvent) => {
-      write(event);
+      write(event, current.events.length - 1);
       if (event.type === "done" || event.type === "error") res.end();
     };
     current.listeners.add(listener);
@@ -372,6 +375,13 @@ export async function startPanel(o: PanelOptions): Promise<Panel> {
       if (job && !job.finished) throw new HttpError(409, t((await lenientConfig()).uiLanguage, "panel.busy"));
       if (body.kind === "from-guide" && !body.guide) throw new HttpError(400, "guide is required");
       return sendJson(res, 202, { id: startJob(body).id });
+    }
+
+    const stop = /^\/api\/jobs\/([a-f0-9]+)$/.exec(path);
+    if (method === "DELETE" && stop) {
+      if (!job || job.id !== stop[1]) throw new HttpError(404, "No such job");
+      job.controller.abort();
+      return sendJson(res, 202, { stopping: !job.finished });
     }
 
     const events = /^\/api\/jobs\/([a-f0-9]+)\/events$/.exec(path);

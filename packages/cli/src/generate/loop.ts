@@ -5,6 +5,7 @@ import {
 import { elementFacts, handleById, observe, performAction, stableStrategies } from "../browser/page.js";
 import type { Session } from "../browser/session.js";
 import type { ChangeContext } from "../diff.js";
+import { throwIfCancelled } from "../cancel.js";
 import type { LlmDriver, ToolCall, ToolResult } from "./driver.js";
 
 export class ToolError extends Error {
@@ -51,6 +52,8 @@ export interface ExplorationOptions {
   /** Language of the messages for the person running the CLI (tool results to the AI stay in English). */
   lang?: Lang;
   afterStep?: () => Promise<void>;
+  /** Stops the exploration between turns. */
+  signal?: AbortSignal;
 }
 
 export interface ExplorationResult {
@@ -78,6 +81,7 @@ export async function runExploration(o: ExplorationOptions): Promise<Exploration
   let pending: ToolResult[] = [];
   let nudged = false;
   for (let round = 0; round < o.maxSteps * 4 + 10; round++) {
+    throwIfCancelled(o.signal, o.lang ?? "en");
     if (turn.stop === "refusal") throw new LoopError("The model declined to continue (refusal).");
     if (turn.calls.length === 0) {
       if (nudged) break;
