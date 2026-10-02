@@ -1,10 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { Command } from "commander";
+import { spawn } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { t, type Lang } from "@explicame/core";
 import { AppUnreachableError, openSession } from "./browser/session.js";
 import { build } from "./build.js";
-import { ConfigError, loadConfig, type Config } from "./config.js";
+import { ConfigError, ConfigSchema, loadConfig, type Config } from "./config.js";
 import { explicameHome, loadCredentials, type Credentials } from "./credentials.js";
 import { createFakeDriver, loadFakeScript } from "./generate/fakeDriver.js";
 import { LoopError } from "./generate/loop.js";
@@ -16,6 +17,7 @@ import { buildVoiceProviders } from "./voice/index.js";
 import { VoiceError, voiceGuide } from "./voice/provider.js";
 import { recordLanguages, RecordError } from "./record.js";
 import { runMcpServer } from "./mcp/server.js";
+import { startPanel } from "./panel/server.js";
 import { VERSION } from "./version.js";
 
 export { VERSION } from "./version.js";
@@ -55,6 +57,13 @@ const langsOf = (value: string | undefined): Lang[] | undefined =>
   !value || value === "all" ? undefined : (value.split(",").map((s) => s.trim()) as Lang[]);
 
 const list = (value: string | undefined) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : undefined);
+
+/** Opens the default browser; the URL is our own, so no argument can be re-read as a command. */
+function openBrowser(url: string): void {
+  const [command, args] =
+    process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+  spawn(command, args as string[], { stdio: "ignore", detached: true }).on("error", () => {}).unref();
+}
 
 export function createProgram(): Command {
   const program = new Command();
@@ -139,6 +148,28 @@ export function createProgram(): Command {
       const cwd = declared && !declared.includes("${") ? resolve(declared) : process.cwd();
       const cli = process.env.EXPLICAME_CLI;
       await runMcpServer({ cwd, home: explicameHome(), version: VERSION, cliCommand: cli ? `node "${cli}"` : "explicame" });
+    });
+
+  program
+    .command("panel")
+    .description("panel local en el navegador · local panel in your browser")
+    .option("--port <port>", "puerto (por defecto 4747)", "4747")
+    .option("--no-open", "no abrir el navegador")
+    .action(async (opts: { port: string; open: boolean }) => {
+      const cwd = process.cwd();
+      // The panel is where a broken config gets fixed, so it starts with the defaults' language if it cannot read it.
+      const uiLang = (await loadConfig(cwd).catch(() => ConfigSchema.parse({}))).uiLanguage;
+      try {
+        const panel = await startPanel({ cwd, home: explicameHome(), port: Number(opts.port) });
+        console.log(t(uiLang, "panel.ready", { url: panel.url }));
+        if (opts.open) openBrowser(panel.url);
+        await new Promise<void>((done) => process.once("SIGINT", () => done()));
+        await panel.close();
+      } catch (error) {
+        const message = (error as NodeJS.ErrnoException).code === "EADDRINUSE" ? t(uiLang, "panel.portBusy", { port: opts.port }) : (error as Error).message;
+        console.error(message);
+        process.exitCode = 2;
+      }
     });
 
   return program;

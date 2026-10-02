@@ -3,7 +3,6 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { build as viteBuild } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { validateGuide } from "@explicame/core";
 import { build } from "../src/build.js";
@@ -18,7 +17,6 @@ let out: string;
 let home: string;
 
 beforeAll(async () => {
-  await viteBuild({ root: DEMO, logLevel: "silent" });
   server = await startServer(join(DEMO, "dist"));
   out = await mkdtemp(join(tmpdir(), "explicame-e2e-out-"));
   home = await mkdtemp(join(tmpdir(), "explicame-e2e-home-"));

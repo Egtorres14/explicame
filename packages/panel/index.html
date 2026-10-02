@@ -4,8 +4,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>explicame · panel</title>
+    <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <main id="app"></main>
+    <header class="top">
+      <h1>explicame <span class="sub" data-t="subtitle"></span></h1>
+      <div class="langs" role="group" aria-label="Idioma · Language">
+        <button type="button" data-ui-lang="es">ES</button>
+        <button type="button" data-ui-lang="en">EN</button>
+      </div>
+    </header>
+    <main id="app"><p data-t="loading"></p></main>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

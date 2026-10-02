@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { chromium, type Browser, type Page } from "playwright";
-import { build as viteBuild } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Guide } from "@explicame/core";
 import { startServer, type TestServer } from "../../cli/test/helpers/server.js";
@@ -30,7 +29,6 @@ let server: TestServer;
 let browser: Browser;
 
 beforeAll(async () => {
-  await viteBuild({ root: DEMO, logLevel: "silent" });
   const site = mkdtempSync(join(tmpdir(), "explicame-player-"));
   cpSync(join(DEMO, "dist"), site, { recursive: true });
   mkdirSync(join(site, "explicame", GUIDE.id), { recursive: true });

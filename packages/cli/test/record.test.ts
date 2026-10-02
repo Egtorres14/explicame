@@ -4,7 +4,6 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { build as viteBuild } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Guide } from "@explicame/core";
 import { build } from "../src/build.js";
@@ -86,7 +85,6 @@ describe("what the recorded page may ask for", () => {
 describe("recordGuide on the demo app", () => {
   let server: TestServer;
   beforeAll(async () => {
-    await viteBuild({ root: DEMO, logLevel: "silent" });
     server = await startServer(join(DEMO, "dist"));
   }, 180_000);
   afterAll(async () => {

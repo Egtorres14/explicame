@@ -33,6 +33,7 @@ describe("binary", () => {
     expect(help).toContain("login");
     expect(help).toContain("record");
     expect(help).toContain("mcp");
+    expect(help).toContain("panel");
     const buildHelp = execFileSync(process.execPath, [`${ROOT}packages/cli/dist/bin.js`, "build", "--help"], { encoding: "utf8" });
     expect(buildHelp).toContain("--from-guide");
     expect(buildHelp).toContain("--video");
