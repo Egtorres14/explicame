@@ -66,10 +66,14 @@ export class Overlay {
   private ringEl: HTMLDivElement | null = null;
   private captionEl: HTMLDivElement | null = null;
   private cursorEl: HTMLDivElement | null = null;
+  /** The app's modal dialogs and popovers that were open the last time the overlay went above them. */
+  private above: Element[] = [];
 
   constructor(zIndex: number) {
     this.host = document.createElement("explicame-player");
-    this.host.style.cssText = `position:fixed;inset:0;z-index:${zIndex};pointer-events:none;`;
+    // From width on: while raise() keeps the layer in the top layer, popover styles (the browser's or the app's) must
+    // not resize or paint it.
+    this.host.style.cssText = `position:fixed;inset:0;z-index:${zIndex};pointer-events:none;width:auto;height:auto;max-width:none;max-height:none;margin:0;border:0;padding:0;overflow:visible;background:transparent;`;
     const root = this.host.attachShadow({ mode: "open" });
     root.append(el("style", undefined, CSS));
     this.layer = el("div");
@@ -122,9 +126,40 @@ export class Overlay {
       this.veilEl?.remove();
       this.veilEl = null;
     }
+    this.raise();
+  }
+
+  /**
+   * A modal dialog or a popover of the app lives in the browser's top layer, above any z-index: it would cover the
+   * ring, the cursor and the caption. While one is open and the overlay shows something, the overlay goes into the
+   * top layer too, after it; it leaves when they close so the app's own modals cover the idle button again.
+   */
+  private raise(): void {
+    const host = this.host as HTMLElement & { showPopover?: () => void; hidePopover?: () => void };
+    if (typeof host.showPopover !== "function") return;
+    try {
+      const shown = host.matches(":popover-open");
+      const showing = Boolean(this.veilEl || this.ringEl || this.captionEl || this.cursorEl);
+      const open = showing ? [...document.querySelectorAll("dialog:modal, :popover-open")].filter((node) => node !== host) : [];
+      if (open.length === 0) {
+        if (shown) host.hidePopover!();
+        // Out of the top layer it stops being a popover, so app styles for closed popovers cannot hide it.
+        host.removeAttribute("popover");
+        this.above = [];
+        return;
+      }
+      if (shown && open.every((node) => this.above.includes(node))) return;
+      if (!host.hasAttribute("popover")) host.setAttribute("popover", "manual");
+      if (shown) host.hidePopover!();
+      host.showPopover();
+      this.above = open;
+    } catch {
+      // Without the Popover API or :modal the overlay keeps its z-index.
+    }
   }
 
   ring(rect: DOMRect | null, n: number): void {
+    this.raise();
     if (!rect) {
       this.ringEl?.remove();
       this.ringEl = null;
@@ -200,6 +235,7 @@ export class Overlay {
     box.append(controls);
     this.captionEl = box;
     this.layer.append(box);
+    this.raise();
   }
 
   hideCaption(): void {
@@ -213,6 +249,7 @@ export class Overlay {
       this.cursorEl.innerHTML = CURSOR_SVG;
       Object.assign(this.cursorEl.style, { left: `${window.innerWidth / 2}px`, top: `${window.innerHeight - 80}px` });
       this.layer.append(this.cursorEl);
+      this.raise();
       await new Promise((resolve) => setTimeout(resolve, 30));
     }
     Object.assign(this.cursorEl.style, { left: `${x}px`, top: `${y}px` });

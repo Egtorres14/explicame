@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -67,6 +68,49 @@ describe("player bundle in a real browser", () => {
     expect(await page.$$eval("tbody tr", (rows) => rows.length)).toBe(3);
     expect(await page.evaluate(() => document.querySelector("explicame-player")!.shadowRoot!.querySelector(".button")!.textContent)).toBe("¿Cómo funciona?");
     expect(await page.evaluate(() => document.querySelector("dialog[open]"))).toBeNull();
+    await page.close();
+  });
+
+  it("draws the ring above a modal dialog the guide opened", async () => {
+    const page = await openApp();
+    await page.evaluate(() => {
+      const api = (window as unknown as { Explicame: typeof import("../src/index.js") }).Explicame;
+      let calls = 0;
+      // Step 1 opens the dialog; step 2 (inside it) narrates forever, so the ring stays on "Desde".
+      api.mount({ lang: "es", typeDelay: 0, narrator: () => ({ done: calls++ === 0 ? Promise.resolve() : new Promise(() => {}), stop() {}, pause() {}, resume() {}, update() {} }) });
+      void api.play("nuevo-filtro-por-fecha");
+    });
+    await page.waitForFunction(() => document.querySelector("explicame-player")!.shadowRoot!.querySelector(".count")?.textContent === "Paso 2 de 6");
+    expect(await page.evaluate(() => document.querySelector("dialog")!.matches(":modal"))).toBe(true);
+    await page.waitForTimeout(600);
+    const ring = await page.evaluate(() => {
+      const r = document.querySelector("explicame-player")!.shadowRoot!.querySelector(".ring")!.getBoundingClientRect();
+      return { x: Math.round(r.left + 1), y: Math.round(r.top + r.height / 2) };
+    });
+    // A pixel of the ring's left border, which lies over the dialog: pink only if the ring is drawn on top of it.
+    const png = await page.screenshot({ clip: { x: ring.x, y: ring.y, width: 1, height: 1 } });
+    const [r, g, b] = execFileSync("ffmpeg", ["-v", "error", "-i", "pipe:0", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { input: png });
+    expect({ r, g, b }).toEqual({ r: 255, g: 143, b: 184 });
+    await page.evaluate(() => (window as unknown as { Explicame: { stop(): void } }).Explicame.stop());
+    await page.close();
+  });
+
+  it("leaves the top layer once the guide closes the dialog, and its button stays visible", async () => {
+    const page = await openApp();
+    // The app's own stylesheet may hide closed popovers; the player must not stay one once it leaves the top layer.
+    await page.addStyleTag({ content: "[popover]:not(:popover-open) { display: none; }" });
+    const completed = await page.evaluate(async () => {
+      const api = (window as unknown as { Explicame: typeof import("../src/index.js") }).Explicame;
+      api.mount({ lang: "es", typeDelay: 0, narrator: () => ({ done: new Promise((r) => setTimeout(r, 30)), stop() {}, pause() {}, resume() {}, update() {} }) });
+      return api.play("nuevo-filtro-por-fecha");
+    });
+    expect(completed).toBe(true);
+    const state = await page.evaluate(() => {
+      const host = document.querySelector("explicame-player")!;
+      const button = host.shadowRoot!.querySelector(".button")!.getBoundingClientRect();
+      return { display: getComputedStyle(host).display, topLayer: host.matches(":popover-open"), buttonWidth: button.width > 0 };
+    });
+    expect(state).toEqual({ display: "block", topLayer: false, buttonWidth: true });
     await page.close();
   });
 
