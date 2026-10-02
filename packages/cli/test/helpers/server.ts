@@ -17,7 +17,7 @@ const TYPES: Record<string, string> = {
 };
 
 /** Static server for tests. Any non-GET request under /api/ answers 200 and is recorded in `hits`. */
-export async function startServer(root: string): Promise<TestServer> {
+export async function startServer(root: string, o: { headers?: Record<string, string> } = {}): Promise<TestServer> {
   const hits: TestServer["hits"] = [];
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -32,7 +32,7 @@ export async function startServer(root: string): Promise<TestServer> {
     const file = join(root, normalize(relative).replace(/^[/\\]+/, ""));
     try {
       const body = await readFile(file);
-      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
+      res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", ...o.headers });
       res.end(body);
     } catch {
       res.writeHead(404);

@@ -74,7 +74,8 @@ export class Overlay {
     root.append(el("style", undefined, CSS));
     this.layer = el("div");
     root.append(this.layer);
-    document.body.append(this.host);
+    // From a <script> in <head> there is no body yet; <html> already exists and a fixed layer renders the same.
+    (document.body ?? document.documentElement).append(this.host);
   }
 
   showButton(label: string, onClick: () => void): void {

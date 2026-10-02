@@ -58,6 +58,7 @@ export const defaultNarrator: Narrator = (text, lang, audioUrl, options) => {
   };
   let audio: HTMLAudioElement | null = null;
   let speaking = false;
+  let watchdog: ReturnType<typeof timer> | null = null;
 
   if (audioUrl && typeof Audio !== "undefined") {
     audio = new Audio(audioUrl);
@@ -66,6 +67,9 @@ export const defaultNarrator: Narrator = (text, lang, audioUrl, options) => {
     audio.playbackRate = options.rate;
     audio.addEventListener("ended", finish);
     audio.addEventListener("error", useTimer);
+    // A stream that stalls fires neither ended nor error: never wait forever (paused time does not count).
+    watchdog = timer(estimateMs(text, options.rate) * 2 + 5000, finish);
+    void done.then(() => watchdog?.stop());
     try {
       const started = audio.play() as Promise<void> | undefined;
       if (started && typeof started.catch === "function") started.catch(useTimer);
@@ -95,17 +99,20 @@ export const defaultNarrator: Narrator = (text, lang, audioUrl, options) => {
       audio?.pause();
       if (speaking) speechSynthesis.cancel();
       fallback?.stop();
+      watchdog?.stop();
       finish();
     },
     pause() {
       audio?.pause();
       if (speaking) speechSynthesis.pause();
       fallback?.pause();
+      watchdog?.pause();
     },
     resume() {
       if (audio && !fallback) void Promise.resolve(audio.play()).catch(useTimer);
       if (speaking) speechSynthesis.resume();
       fallback?.resume();
+      watchdog?.resume();
     },
     update(o) {
       if (!audio) return;

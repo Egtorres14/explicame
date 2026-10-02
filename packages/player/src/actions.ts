@@ -33,6 +33,18 @@ function selectOption(el: HTMLSelectElement, label: string): void {
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+/** Presses and releases the pointer before clicking, as a real click (and Playwright in verification) does. */
+function press(el: HTMLElement): void {
+  const base = { bubbles: true, cancelable: true, composed: true, button: 0 };
+  const pointer = { ...base, pointerId: 1, pointerType: "mouse", isPrimary: true };
+  const hasPointer = typeof PointerEvent === "function";
+  if (hasPointer) el.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, buttons: 1 }));
+  if (el.dispatchEvent(new MouseEvent("mousedown", { ...base, buttons: 1 }))) el.focus?.({ preventScroll: true });
+  if (hasPointer) el.dispatchEvent(new PointerEvent("pointerup", { ...pointer, buttons: 0 }));
+  el.dispatchEvent(new MouseEvent("mouseup", { ...base, buttons: 0 }));
+  el.click();
+}
+
 export async function performStepAction(
   el: Element | null,
   action: Action,
@@ -44,7 +56,7 @@ export async function performStepAction(
     return;
   }
   if (!el) return;
-  if (action.type === "click") (el as HTMLElement).click();
+  if (action.type === "click") press(el as HTMLElement);
   else if (action.type === "type") await typeInto(el as HTMLInputElement, action.value, o.typeDelay);
   else selectOption(el as HTMLSelectElement, action.value);
 }

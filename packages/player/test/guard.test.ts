@@ -31,6 +31,26 @@ describe("installWriteGuard", () => {
     expect(window.fetch).toBe(realFetch);
   });
 
+  it("keeps blocking until the last guard is removed, in any order", async () => {
+    const first = installWriteGuard({});
+    const second = installWriteGuard({});
+    first();
+    await expect(window.fetch("/api/x", { method: "POST" })).rejects.toThrow(/blocked/);
+    second();
+    expect(window.fetch).toBe(realFetch);
+  });
+
+  it("leaves a wrapper the app added meanwhile in place, with the guard turned into a pass-through", async () => {
+    const off = installWriteGuard({});
+    const guarded = window.fetch;
+    const appWrapper = ((input: RequestInfo | URL, init?: RequestInit) => guarded(input, init)) as typeof fetch;
+    window.fetch = appWrapper;
+    off();
+    expect(window.fetch).toBe(appWrapper);
+    await window.fetch("/api/x", { method: "POST" });
+    expect(realFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks XMLHttpRequest writes with an error event", async () => {
     const onBlocked = vi.fn();
     restore = installWriteGuard({ onBlocked });

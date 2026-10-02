@@ -51,6 +51,10 @@ describe("validateGuide", () => {
     g.steps[0]!.action = { type: "navigate", url: "//evil.example/x" } as unknown as { type: "click" };
     expect(validateGuide(g).ok).toBe(false);
     expect(validateGuide({ ...base(), startUrl: "//evil.example/" }).ok).toBe(false);
+    const back = base();
+    back.steps[0]!.action = { type: "navigate", url: "/\\evil.example/x" } as unknown as { type: "click" };
+    expect(validateGuide(back).ok).toBe(false);
+    expect(validateGuide({ ...base(), startUrl: "/\\evil.example/" }).ok).toBe(false);
   });
 
   it("rejects ids that are not kebab-case and external navigation", () => {

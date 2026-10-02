@@ -41,6 +41,17 @@ afterEach(() => Explicame.unmount());
 const shadow = () => document.querySelector("explicame-player")!.shadowRoot!;
 
 describe("mount", () => {
+  it("mounts from a script in <head>, before the body exists", () => {
+    const body = document.body;
+    body.remove();
+    try {
+      Explicame.mount({ lang: "es" });
+      expect(document.querySelector("explicame-player")).not.toBeNull();
+    } finally {
+      document.documentElement.append(body);
+    }
+  });
+
   it("shows the button in the chosen language and lists the guides of this screen", async () => {
     Explicame.mount({ lang: "es" });
     const button = shadow().querySelector<HTMLButtonElement>(".button")!;
@@ -82,10 +93,57 @@ describe("play", () => {
     expect((document.getElementById("g") as HTMLSelectElement).value).toBe("Semana");
   });
 
-  it("narrates without a ring when a target never appears", async () => {
+  it("narrates without a ring when a target never appears, and says so", async () => {
     document.body.innerHTML = "";
-    Explicame.mount({ lang: "en", button: false, narrator: instant, resolveTimeoutMs: 100 });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      Explicame.mount({ lang: "en", button: false, narrator: instant, resolveTimeoutMs: 100 });
+      const missing: unknown[] = [];
+      Explicame.on("missing", (e) => missing.push(e.index));
+      expect(await Explicame.play("demo")).toBe(true);
+      expect(missing).toEqual([0, 1, 2]);
+      expect(warn).toHaveBeenCalledTimes(3);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("presses the pointer before clicking, like the verification did", async () => {
+    const seen: string[] = [];
+    const button = document.querySelector("[data-testid=abrir]")!;
+    for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) button.addEventListener(type, () => seen.push(type));
+    Explicame.mount({ lang: "es", button: false, narrator: instant, typeDelay: 0 });
     expect(await Explicame.play("demo")).toBe(true);
+    expect(seen).toEqual(["pointerdown", "mousedown", "pointerup", "mouseup", "click"]);
+  });
+
+  it("a second play() waits for the first run to clean up and keeps writes blocked", async () => {
+    document.querySelector("[data-testid=abrir]")!.remove();
+    Explicame.mount({ lang: "es", button: false, narrator: held, resolveTimeoutMs: 5000 });
+    const first = Explicame.play("demo");
+    await vi.waitFor(() => expect(shadow().querySelector(".veil")).not.toBeNull());
+    const second = Explicame.play("demo");
+    expect(await first).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(shadow().querySelector(".veil")).not.toBeNull();
+    await expect(window.fetch("/api/preferences", { method: "POST" })).rejects.toThrow(/blocked/);
+    Explicame.stop();
+    expect(await second).toBe(false);
+    expect(window.fetch).toBe(fetchMock);
+  });
+
+  it("ends the guide and restores fetch even when the app's router refuses to navigate back", async () => {
+    const navigate = vi.fn(async () => {
+      if (navigate.mock.calls.length > 1) throw new Error("navigation aborted");
+    });
+    fetchMock.mockImplementation(async () => json({ ...GUIDE, startUrl: "/reportes" }));
+    Explicame.mount({ lang: "es", button: false, narrator: instant, typeDelay: 0, navigate });
+    const ended = vi.fn();
+    Explicame.on("end", ended);
+    expect(await Explicame.play("demo")).toBe(true);
+    expect(navigate).toHaveBeenCalledTimes(2);
+    expect(window.fetch).toBe(fetchMock);
+    expect(ended).toHaveBeenCalledWith({ id: "demo", completed: true });
   });
 
   it("Escape stops, ArrowRight skips, and fetch is restored", async () => {
@@ -114,6 +172,57 @@ describe("play", () => {
 });
 
 describe("defaultNarrator", () => {
+  it("does not wait forever for audio that starts and then stalls", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => Promise.resolve());
+    vi.useFakeTimers();
+    try {
+      let ended = false;
+      const narration = defaultNarrator("Hola mundo", "es", "/audio.mp3", { muted: false, rate: 1, volume: 1 });
+      void narration.done.then(() => (ended = true));
+      await vi.advanceTimersByTimeAsync(estimateMs("Hola mundo") * 2 + 5010);
+      expect(ended).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      play.mockRestore();
+    }
+  });
+
+  it("keeps a paused narration paused past the watchdog", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => Promise.resolve());
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    vi.useFakeTimers();
+    try {
+      let ended = false;
+      const narration = defaultNarrator("Hola mundo", "es", "/audio.mp3", { muted: false, rate: 1, volume: 1 });
+      void narration.done.then(() => (ended = true));
+      narration.pause();
+      await vi.advanceTimersByTimeAsync(estimateMs("Hola mundo") * 2 + 6000);
+      expect(ended).toBe(false);
+      narration.stop();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(ended).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      play.mockRestore();
+    }
+  });
+
+  it("falls back to a timer when the browser refuses to autoplay", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => Promise.reject(new DOMException("autoplay blocked", "NotAllowedError")));
+    vi.useFakeTimers();
+    try {
+      let ended = false;
+      const narration = defaultNarrator("Hola mundo", "es", "/audio.mp3", { muted: false, rate: 1, volume: 1 });
+      void narration.done.then(() => (ended = true));
+      await vi.advanceTimersByTimeAsync(estimateMs("Hola mundo") + 10);
+      expect(ended).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      play.mockRestore();
+    }
+  });
+
   it("falls back to a timer when the audio cannot play", async () => {
     vi.useFakeTimers();
     try {

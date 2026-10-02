@@ -4,8 +4,8 @@ export const LANGUAGES = ["es", "en"] as const;
 export type Lang = (typeof LANGUAGES)[number];
 export type LocalizedText = Partial<Record<Lang, string>>;
 export const MAX_NARRATION = 300;
-/** Same-origin path: starts with one slash, never two ("//host" would leave the app). */
-export const SAME_ORIGIN_PATH = /^\/(?!\/)/;
+/** Same-origin path: one slash, never followed by another slash or a backslash ("//host" and "/\host" leave the app). */
+export const SAME_ORIGIN_PATH = /^\/(?![/\\])/;
 
 export const StrategySchema = z.discriminatedUnion("by", [
   z.object({ by: z.literal("tour"), value: z.string().min(1) }),

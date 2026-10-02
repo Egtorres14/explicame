@@ -14,7 +14,7 @@ export interface RunOptions {
   navigate?: (url: string) => void | Promise<void>;
   allow?: AllowRule[];
   onBlocked?: (info: BlockedInfo) => void;
-  emit: (event: "step" | "end", payload: Record<string, unknown>) => void;
+  emit: (event: "step" | "end" | "missing", payload: Record<string, unknown>) => void;
   record: boolean;
   typeDelay: number;
   resolveTimeoutMs: number;
@@ -47,10 +47,16 @@ export class GuideRun {
   private readonly reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   private readonly onKey = (event: KeyboardEvent) => this.handleKey(event);
   private readonly o: RunOptions;
+  private readonly resolveDone: () => void;
+  /** Resolves once the run has given back the veil, the write guard and the overlay. */
+  readonly done: Promise<void>;
 
   constructor(options: RunOptions) {
     this.o = options;
     this.lang = options.lang;
+    let resolve!: () => void;
+    this.done = new Promise<void>((r) => (resolve = r));
+    this.resolveDone = resolve;
   }
 
   async start(): Promise<boolean> {
@@ -113,6 +119,10 @@ export class GuideRun {
     this.o.emit("step", { id: guide.id, index: i });
     this.target = step.target ? await this.waitForTarget(step) : null;
     if (this.stopped || this.jump !== null) return;
+    if (step.target && !this.target) {
+      console.warn(`explicame: step ${i + 1} of "${guide.id}" has no element on the screen; it is narrated without the ring.`);
+      this.o.emit("missing", { id: guide.id, index: i });
+    }
     if (this.target) {
       this.target.scrollIntoView?.({ block: "center", behavior: this.reduced ? "auto" : "smooth" });
       await sleep(this.reduced ? 0 : 300);
@@ -240,17 +250,24 @@ export class GuideRun {
     overlay.hideCaption();
     overlay.hideCursor();
     overlay.veil(false);
-    if (this.opened > 0) {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      document.querySelectorAll("dialog[open]").forEach((node) => {
-        const dialog = node as HTMLDialogElement;
-        if (typeof dialog.close === "function") dialog.close();
-        else dialog.removeAttribute("open");
-      });
+    try {
+      if (this.opened > 0) {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        document.querySelectorAll("dialog[open]").forEach((node) => {
+          const dialog = node as HTMLDialogElement;
+          if (typeof dialog.close === "function") dialog.close();
+          else dialog.removeAttribute("open");
+        });
+      }
+      if (this.o.navigate && location.pathname !== guide.startUrl) await this.o.navigate(guide.startUrl);
+    } catch {
+      // The app's router may refuse to go back; the guide still ends and gives back the guard.
+    } finally {
+      this.restoreGuard?.();
+      this.restoreGuard = null;
+      this.resolveDone();
+      this.recordHook()?.({ type: "end" });
+      this.o.emit("end", { id: guide.id, completed });
     }
-    if (this.o.navigate && location.pathname !== guide.startUrl) await this.o.navigate(guide.startUrl);
-    this.restoreGuard?.();
-    this.recordHook()?.({ type: "end" });
-    this.o.emit("end", { id: guide.id, completed });
   }
 }

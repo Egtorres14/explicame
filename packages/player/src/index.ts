@@ -35,7 +35,7 @@ export interface GuideSummary {
   languages: Lang[];
 }
 
-type EventName = "step" | "end" | "blocked";
+type EventName = "step" | "end" | "blocked" | "missing";
 type Listener = (payload: Record<string, unknown>) => void;
 
 interface State {
@@ -43,6 +43,8 @@ interface State {
   overlay: Overlay;
   run: GuideRun | null;
   listeners: Map<EventName, Set<Listener>>;
+  /** Bumped by every play() and by unmount(): a play() that is no longer the latest gives up. */
+  ticket: number;
 }
 
 let state: State | null = null;
@@ -69,7 +71,7 @@ export function mount(options: MountOptions = {}): void {
     resolveTimeoutMs: options.resolveTimeoutMs ?? 5000,
   };
   const overlay = new Overlay(resolved.zIndex);
-  state = { options: resolved, overlay, run: null, listeners: new Map() };
+  state = { options: resolved, overlay, run: null, listeners: new Map(), ticket: 0 };
   if (options.button !== false) overlay.showButton(ui(lang, "howItWorks"), () => void toggleList());
 }
 
@@ -98,13 +100,20 @@ export async function loadIndex(): Promise<GuideSummary[]> {
 
 export async function play(id: string, o: { lang?: Lang } = {}): Promise<boolean> {
   const current = requireState();
-  current.run?.stop();
+  const ticket = ++current.ticket;
+  // One run at a time: the previous run gives back the veil and the write guard before the next one takes them.
+  const previous = current.run;
+  if (previous) {
+    previous.stop();
+    await previous.done;
+  }
   const response = await fetch(`${current.options.base}/${id}/guide.json`);
   if (!response.ok) throw new Error(`explicame: guide ${id} not found (${response.status})`);
   const guide = (await response.json()) as Guide;
   const wanted = o.lang ?? current.options.lang;
   const lang = guide.languages.includes(wanted) ? wanted : guide.languages[0]!;
   if (current.options.navigate && location.pathname !== guide.startUrl) await current.options.navigate(guide.startUrl);
+  if (ticket !== current.ticket || state !== current) return false;
   const run = new GuideRun({
     guide,
     base: current.options.base,
@@ -146,7 +155,9 @@ export function on(event: EventName, listener: Listener): () => void {
 }
 
 export function unmount(): void {
-  state?.run?.stop();
-  state?.overlay.destroy();
+  if (!state) return;
+  state.ticket += 1;
+  state.run?.stop();
+  state.overlay.destroy();
   state = null;
 }

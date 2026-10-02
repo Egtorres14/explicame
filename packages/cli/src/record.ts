@@ -1,15 +1,46 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { t, type AllowRule, type Guide, type Lang } from "@explicame/core";
+import { LANGUAGES, t, type AllowRule, type Guide, type Lang } from "@explicame/core";
 import { openSession } from "./browser/session.js";
 import { ConfigError } from "./config.js";
 import { playerBundlePath } from "./player.js";
 
 const run = promisify(execFile);
 const TAIL_MS = 1200;
+const ASSET = new RegExp(`^(guide\\.json|audio/(${LANGUAGES.join("|")})/\\d{2}\\.mp3)$`);
+
+/** The file a /__explicame__/ request may read: this guide's guide.json and audio, never anything else on disk. */
+export function guideAssetPath(root: string, id: string, pathname: string): string | null {
+  const prefix = `/__explicame__/${id}/`;
+  if (!pathname.startsWith(prefix)) return null;
+  let relative: string;
+  try {
+    relative = decodeURIComponent(pathname.slice(prefix.length));
+  } catch {
+    return null;
+  }
+  if (!ASSET.test(relative)) return null;
+  const dir = resolve(root, id);
+  const file = resolve(dir, relative);
+  return file.startsWith(dir + sep) ? file : null;
+}
+
+export type RecordEvent = { type: "narration"; index: number } | { type: "end" };
+
+/** A timing event from the recorded page, if it is well-formed: the page's own scripts can call the binding too. */
+export function recordEvent(raw: unknown, steps: number): RecordEvent | null {
+  if (!raw || typeof raw !== "object") return null;
+  const event = raw as { type?: unknown; index?: unknown };
+  if (event.type === "end") return { type: "end" };
+  const index = event.index;
+  if (event.type === "narration" && typeof index === "number" && Number.isInteger(index) && index >= 0 && index < steps) {
+    return { type: "narration", index };
+  }
+  return null;
+}
 
 export class RecordError extends Error {
   constructor(message: string) {
@@ -95,18 +126,20 @@ export async function recordGuide(o: RecordOptions): Promise<{ video: string; su
     recordVideoDir: videoDir,
     launchArgs: ["--autoplay-policy=no-user-gesture-required"],
     beforePage: async (context) => {
-      await context.exposeBinding("__explicameRecordEvent", (_source, event: { type: string; index?: number }) => {
-        events.push({ ...event, at: Date.now() });
+      await context.exposeBinding("__explicameRecordEvent", (_source, raw: unknown) => {
+        const event = recordEvent(raw, o.guide.steps.length);
+        if (event) events.push({ ...event, at: Date.now() });
       });
       await context.route("**/__explicame__/**", (route) => {
-        const relative = decodeURIComponent(new URL(route.request().url()).pathname.replace(/^\/__explicame__\//, ""));
-        return route.fulfill({ path: join(o.guidesRoot, relative) });
+        const file = guideAssetPath(o.guidesRoot, o.guide.id, new URL(route.request().url()).pathname);
+        return file ? route.fulfill({ path: file }) : route.fulfill({ status: 404, body: "" });
       });
+      // An init script, unlike a <script> tag, also runs on pages with a strict Content-Security-Policy.
+      await context.addInitScript({ path: playerBundlePath() });
     },
   });
   let closed = false;
   try {
-    await session.page.addScriptTag({ path: playerBundlePath() });
     await session.page.evaluate(
       async ({ id, lang }) => {
         const api = (window as unknown as { Explicame: { mount(o: object): void; play(id: string, o: object): Promise<boolean> } }).Explicame;

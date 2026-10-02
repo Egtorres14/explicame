@@ -1,6 +1,6 @@
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,8 +10,8 @@ import type { Guide } from "@explicame/core";
 import { build } from "../src/build.js";
 import { ConfigError, ConfigSchema } from "../src/config.js";
 import { createFakeDriver, loadFakeScript } from "../src/generate/fakeDriver.js";
-import { buildSrt, ffmpegArgs, findFfmpeg, recordGuide, RecordError, srtTime } from "../src/record.js";
-import { createFakeVoiceProvider } from "../src/voice/fake.js";
+import { buildSrt, ffmpegArgs, findFfmpeg, guideAssetPath, recordEvent, recordGuide, RecordError, srtTime } from "../src/record.js";
+import { createFakeVoiceProvider, silentMp3 } from "../src/voice/fake.js";
 import { startServer, type TestServer } from "./helpers/server.js";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -49,6 +49,31 @@ describe("subtitles and ffmpeg arguments", () => {
   });
 });
 
+describe("what the recorded page may ask for", () => {
+  const root = join(tmpdir(), "guides");
+
+  it("serves only this guide's guide.json and audio", () => {
+    expect(guideAssetPath(root, "filtro", "/__explicame__/filtro/guide.json")).toBe(join(root, "filtro", "guide.json"));
+    expect(guideAssetPath(root, "filtro", "/__explicame__/filtro/audio/es/01.mp3")).toBe(join(root, "filtro", "audio", "es", "01.mp3"));
+    expect(guideAssetPath(root, "filtro", "/__explicame__/otra/guide.json")).toBeNull();
+    expect(guideAssetPath(root, "filtro", "/__explicame__/guides.json")).toBeNull();
+  });
+
+  it("refuses encoded separators, dot segments and broken escapes", () => {
+    for (const path of ["/__explicame__/filtro/..%2f..%2f.env", "/__explicame__/filtro/..%5c..%5ccredentials.json", "/__explicame__/filtro/%2e%2e/guide.json", "/__explicame__/filtro/%E0%A4%A"]) {
+      expect(guideAssetPath(root, "filtro", path)).toBeNull();
+    }
+  });
+
+  it("keeps only well-formed timing events", () => {
+    expect(recordEvent({ type: "narration", index: 1 }, 3)).toEqual({ type: "narration", index: 1 });
+    expect(recordEvent({ type: "end" }, 3)).toEqual({ type: "end" });
+    for (const bad of [{ type: "narration", index: 3 }, { type: "narration", index: -1 }, { type: "narration", index: 1.5 }, { type: "narration" }, { type: "boom" }, null, "end"]) {
+      expect(recordEvent(bad, 3)).toBeNull();
+    }
+  });
+});
+
 describe("recordGuide on the demo app", () => {
   let server: TestServer;
   beforeAll(async () => {
@@ -81,4 +106,19 @@ describe("recordGuide on the demo app", () => {
     expect(Number(info.format.duration)).toBeGreaterThan(6);
     expect(readFileSync(result.subtitles, "utf8").match(/^\d+$/gm)).toEqual(["1", "2", "3", "4", "5", "6"]);
   }, 240_000);
+
+  it("records apps with a strict Content-Security-Policy", async () => {
+    const csp = await startServer(join(DEMO, "dist"), { headers: { "content-security-policy": "script-src 'self'" } });
+    try {
+      const out = await mkdtemp(join(tmpdir(), "explicame-rec-csp-"));
+      const guide = { ...guideOf([{ narration: { es: "Aquí ves tus reportes." }, audio: { es: "audio/es/01.mp3" } }]), id: "csp" };
+      await mkdir(join(out, "csp", "audio", "es"), { recursive: true });
+      await writeFile(join(out, "csp", "guide.json"), JSON.stringify(guide));
+      await writeFile(join(out, "csp", "audio", "es", "01.mp3"), silentMp3(4));
+      const result = await recordGuide({ guide, guidesRoot: out, appUrl: csp.url, lang: "es", outDir: join(out, "videos") });
+      expect(existsSync(result.video)).toBe(true);
+    } finally {
+      await csp.close();
+    }
+  }, 120_000);
 });
