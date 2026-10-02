@@ -15,6 +15,8 @@ export interface SessionOptions {
   headless?: boolean;
   lang?: Lang;
   viewport?: { width: number; height: number };
+  /** Device pixels per CSS pixel; the video is filmed at viewport × this, so text stays sharp. */
+  deviceScaleFactor?: number;
   /** Folder where Playwright writes the video of the page (recording). */
   recordVideoDir?: string;
   launchArgs?: string[];
@@ -49,14 +51,20 @@ export async function settle(page: Page, timeoutMs = 3000): Promise<void> {
 }
 
 export async function openSession(o: SessionOptions): Promise<Session> {
-  const browser = await chromium.launch({ headless: o.headless ?? true, args: o.launchArgs });
+  const scale = o.deviceScaleFactor ?? 1;
+  // Emulating the scale alone is not enough for the video: Chromium then films CSS pixels and Playwright pads the
+  // rest of the frame with grey. Forcing the same scale on the browser makes it film device pixels.
+  const args = scale === 1 ? o.launchArgs : [...(o.launchArgs ?? []), `--force-device-scale-factor=${scale}`];
+  const browser = await chromium.launch({ headless: o.headless ?? true, args });
   try {
     const storageState = o.storageStatePath && existsSync(o.storageStatePath) ? o.storageStatePath : undefined;
     const viewport = o.viewport ?? { width: 1280, height: 800 };
+    const videoSize = { width: Math.round(viewport.width * scale), height: Math.round(viewport.height * scale) };
     const context = await browser.newContext({
       viewport,
+      deviceScaleFactor: scale,
       storageState,
-      recordVideo: o.recordVideoDir ? { dir: o.recordVideoDir, size: viewport } : undefined,
+      recordVideo: o.recordVideoDir ? { dir: o.recordVideoDir, size: videoSize } : undefined,
     });
     await o.beforePage?.(context);
     const blocked: BlockedRequest[] = [];

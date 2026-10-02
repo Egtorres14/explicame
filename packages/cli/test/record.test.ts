@@ -123,6 +123,8 @@ describe("recordGuide on the demo app", () => {
       await writeFile(join(out, "csp", "audio", "es", "01.mp3"), silentMp3(4));
       const result = await recordGuide({ guide, guidesRoot: out, appUrl: csp.url, lang: "es", outDir: join(out, "videos") });
       expect(existsSync(result.video)).toBe(true);
+      const size = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v", "-show_entries", "stream=width,height", "-of", "csv=p=0", result.video], { encoding: "utf8" }).trim();
+      expect(size).toBe("1920,1080");
     } finally {
       await csp.close();
     }

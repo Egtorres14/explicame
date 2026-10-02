@@ -120,7 +120,9 @@ export async function recordGuide(o: RecordOptions): Promise<{ video: string; su
     allowRequests: o.allowRequests,
     storageStatePath: o.storageStatePath,
     lang: uiLang,
-    viewport: { width: 1920, height: 1080 },
+    // Laid out at 1280×720 and filmed at 1920×1080: the app and the captions read at a legible size.
+    viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: 1.5,
     recordVideoDir: videoDir,
     launchArgs: ["--autoplay-policy=no-user-gesture-required"],
     beforePage: async (context) => {

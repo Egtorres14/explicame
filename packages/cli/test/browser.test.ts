@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdtemp, readdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { checkClickSafety, type Observation, type ObservedElement } from "@explicame/core";
@@ -30,6 +34,26 @@ describe("openSession", () => {
     } finally {
       await session.close();
     }
+  });
+
+  it("films at a higher pixel density without changing the CSS layout", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "explicame-dsf-"));
+    const session = await openSession({ appUrl: server.url, startUrl: "/", viewport: { width: 640, height: 360 }, deviceScaleFactor: 2, recordVideoDir: dir });
+    let layout: number[];
+    try {
+      await session.page.setContent(`<body style="margin:0;background:#fff"><div style="position:fixed;right:0;bottom:0;width:40px;height:40px;background:#f00"></div></body>`);
+      layout = await session.page.evaluate(() => [window.innerWidth, window.devicePixelRatio]);
+      await session.page.waitForTimeout(800);
+    } finally {
+      await session.close();
+    }
+    expect(layout).toEqual([640, 2]);
+    const video = join(dir, (await readdir(dir)).find((f) => f.endsWith(".webm"))!);
+    const size = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", video], { encoding: "utf8" }).trim();
+    expect(size).toBe("1280,720");
+    // The red square sits in the page's bottom-right corner, so it must fill the video's corner too, not grey padding.
+    const corner = execFileSync("ffmpeg", ["-v", "error", "-sseof", "-0.3", "-i", video, "-frames:v", "1", "-vf", "crop=4:4:1274:714", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+    expect([corner[0]! > 200, corner[1]! < 60, corner[2]! < 60]).toEqual([true, true, true]);
   });
 
   it("reports an unreachable app", async () => {
