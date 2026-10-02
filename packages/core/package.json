@@ -1,0 +1,14 @@
+{
+  "name": "@explicame/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./runtime": "./src/domRuntimeImpl.js",
+    "./safety": "./src/safety.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

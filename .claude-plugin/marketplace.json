@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "explicame",
+  "description": "explicame / explain-me: guías de onboarding narradas para cada funcionalidad nueva · narrated onboarding for every new feature",
+  "owner": {
+    "name": "Gabriel Torres"
+  },
+  "plugins": [
+    {
+      "name": "explicame",
+      "source": "./plugin",
+      "description": "Claude Code genera, a partir del diff, la guía interactiva y narrada (ES/EN) de una funcionalidad nueva, explorando la app real · Claude Code turns the diff into a narrated, bilingual in-app guide"
+    }
+  ]
+}

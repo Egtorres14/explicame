@@ -1,0 +1,38 @@
+import type { Config } from "../config.js";
+import { explicameHome, type Credentials } from "../credentials.js";
+import { findFfmpeg } from "../ffmpeg.js";
+import { createCommandProvider } from "./command.js";
+import { createDeepgramProvider } from "./deepgram.js";
+import { createElevenLabsProvider } from "./elevenlabs.js";
+import { createFakeVoiceProvider } from "./fake.js";
+import { createOpenAiProvider } from "./openai.js";
+import { createPiperProvider } from "./piper.js";
+import type { VoiceProvider } from "./provider.js";
+
+/**
+ * The main provider first, then the fallbacks. The configured voices and model belong to the main provider:
+ * fallbacks speak with their own defaults. ElevenLabs only works with configured voice ids, so it never
+ * serves as a fallback.
+ */
+export function buildVoiceProviders(config: Config, creds: Credentials, o: { home?: string; log?: (message: string) => void } = {}): VoiceProvider[] {
+  // Choosing the free browser voice must never bill a fallback: it makes no audio files at all.
+  if (config.voice.provider === "browser") return [];
+  const ids = [config.voice.provider, ...config.voice.fallback.filter((id) => id !== config.voice.provider)];
+  const providers: VoiceProvider[] = [];
+  for (const id of ids) {
+    const main = id === config.voice.provider;
+    const voices = main ? config.voice.voices : {};
+    const model = main ? config.voice.model : undefined;
+    if (id === "fake") providers.push(createFakeVoiceProvider());
+    if (id === "elevenlabs" && main && creds.elevenlabs) providers.push(createElevenLabsProvider({ apiKey: creds.elevenlabs, model, voices }));
+    if (id === "deepgram" && creds.deepgram) providers.push(createDeepgramProvider({ apiKey: creds.deepgram, voices }));
+    if (id === "openai" && creds.openai) providers.push(createOpenAiProvider({ apiKey: creds.openai, model, voices }));
+    if (id === "command" && config.voice.command) {
+      providers.push(createCommandProvider({ template: config.voice.command, voices, ffmpeg: () => findFfmpeg(config.uiLanguage) }));
+    }
+    if (id === "piper") {
+      providers.push(createPiperProvider({ home: o.home ?? explicameHome(), voices, ffmpeg: () => findFfmpeg(config.uiLanguage), log: o.log, lang: config.uiLanguage }));
+    }
+  }
+  return providers;
+}

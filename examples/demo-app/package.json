@@ -1,0 +1,13 @@
+{
+  "name": "demo-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/copy-player.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-player.mjs",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  }
+}

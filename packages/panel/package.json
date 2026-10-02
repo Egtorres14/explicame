@@ -1,0 +1,10 @@
+{
+  "name": "@explicame/panel",
+  "version": "0.1.0",
+  "description": "Panel local de explicame · explicame local panel",
+  "license": "MIT",
+  "type": "module",
+  "files": ["dist"],
+  "exports": { "./package.json": "./package.json" },
+  "scripts": { "build": "vite build" }
+}

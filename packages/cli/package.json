@@ -1,0 +1,33 @@
+{
+  "name": "explicame",
+  "version": "0.1.0",
+  "description": "Onboarding narrado para cada funcionalidad nueva · Narrated onboarding for every new feature",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "explicame": "dist/bin.js",
+    "explain-me": "dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@explicame/panel": "0.1.0",
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@explicame/player": "0.1.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "commander": "^15.0.0",
+    "playwright": "^1.63.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@explicame/core": "0.1.0",
+    "tsup": "^8.5.1"
+  }
+}

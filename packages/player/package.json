@@ -1,0 +1,15 @@
+{
+  "name": "@explicame/player",
+  "version": "0.1.0",
+  "description": "Reproductor de guías de explicame · explicame guide player",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./explicame-player.js": "./dist/explicame-player.js"
+  },
+  "files": ["dist"],
+  "scripts": { "build": "tsup" },
+  "devDependencies": { "@explicame/core": "0.1.0", "tsup": "^8.5.1" }
+}

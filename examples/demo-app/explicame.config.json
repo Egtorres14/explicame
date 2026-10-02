@@ -1,0 +1,7 @@
+{
+  "appUrl": "http://localhost:5173",
+  "base": "main",
+  "languages": ["es", "en"],
+  "mode": "plugin",
+  "voice": { "provider": "piper" }
+}

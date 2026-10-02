@@ -1,0 +1,12 @@
+{
+  "turns": [
+    [{ "name": "observe", "input": {} }],
+    [{ "name": "add_step", "input": { "narration": { "es": "Lo nuevo está aquí: el botón Filtrar por fecha abre el filtro de reportes.", "en": "Here is what's new: the Filter by date button opens the report filter." }, "element": { "name": "Filtrar por fecha" }, "action": "click", "value": null, "url": null, "opens": "dialog" } }],
+    [{ "name": "add_step", "input": { "narration": { "es": "Elige desde qué fecha quieres ver los reportes.", "en": "Pick the first date you want to see." }, "element": { "label": "Desde" }, "action": "type", "value": "2026-09-01", "url": null, "opens": null } }],
+    [{ "name": "add_step", "input": { "narration": { "es": "Y hasta qué fecha.", "en": "And the last one." }, "element": { "label": "Hasta" }, "action": "type", "value": "2026-09-30", "url": null, "opens": null } }],
+    [{ "name": "add_step", "input": { "narration": { "es": "Aquí decides cómo agruparlos: por día, semana o mes.", "en": "Here you choose how to group them: by day, week or month." }, "element": { "label": "Agrupar por" }, "action": "select", "value": "Semana", "url": null, "opens": null } }],
+    [{ "name": "add_step", "input": { "narration": { "es": "Este botón guarda el filtro para la próxima vez; en esta guía solo te lo señalo.", "en": "This button saves the filter for next time; in this guide I only point at it." }, "element": { "name": "Guardar como predeterminado" }, "action": null, "value": null, "url": null, "opens": null } }],
+    [{ "name": "add_step", "input": { "narration": { "es": "Aplicar filtra la tabla con tu rango de fechas.", "en": "Apply filters the table with your date range." }, "element": { "name": "Aplicar" }, "action": "click", "value": null, "url": null, "opens": null } }],
+    [{ "name": "finish", "input": { "title": { "es": "Nuevo filtro por fecha", "en": "New date filter" } } }]
+  ]
+}

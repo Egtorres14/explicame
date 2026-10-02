@@ -1,0 +1,7 @@
+[
+  { "fecha": "2026-08-28", "cliente": "Café del Río", "total": 1250000 },
+  { "fecha": "2026-09-03", "cliente": "Ferretería Andina", "total": 830000 },
+  { "fecha": "2026-09-12", "cliente": "Librería Central", "total": 455000 },
+  { "fecha": "2026-09-21", "cliente": "Panadería La Espiga", "total": 312000 },
+  { "fecha": "2026-10-02", "cliente": "Óptica Visión", "total": 980000 }
+]
