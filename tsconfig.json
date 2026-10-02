@@ -17,6 +17,7 @@
   "include": [
     "packages/*/src",
     "packages/*/test",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "vitest.global-setup.ts"
   ]
 }

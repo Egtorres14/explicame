@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -19,7 +18,6 @@ let out: string;
 let home: string;
 
 beforeAll(async () => {
-  execSync("npm run build -w @explicame/player", { cwd: fileURLToPath(new URL("../../../", import.meta.url)), stdio: "pipe" });
   await viteBuild({ root: DEMO, logLevel: "silent" });
   server = await startServer(join(DEMO, "dist"));
   out = await mkdtemp(join(tmpdir(), "explicame-e2e-out-"));

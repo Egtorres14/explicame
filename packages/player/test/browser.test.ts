@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,7 +30,6 @@ let server: TestServer;
 let browser: Browser;
 
 beforeAll(async () => {
-  execSync("npm run build -w @explicame/player", { cwd: ROOT, stdio: "pipe" });
   await viteBuild({ root: DEMO, logLevel: "silent" });
   const site = mkdtempSync(join(tmpdir(), "explicame-player-"));
   cpSync(join(DEMO, "dist"), site, { recursive: true });

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -26,13 +26,13 @@ describe("exitCodeFor", () => {
 
 describe("binary", () => {
   it("builds and answers --help under both names", () => {
-    execSync("npm run build -w explicame", { cwd: ROOT, stdio: "pipe" });
     const help = execFileSync(process.execPath, [`${ROOT}packages/cli/dist/bin.js`, "--help"], { encoding: "utf8" });
     expect(help).toContain("build");
     expect(help).toContain("verify");
     expect(help).toContain("voice");
     expect(help).toContain("login");
     expect(help).toContain("record");
+    expect(help).toContain("mcp");
     const buildHelp = execFileSync(process.execPath, [`${ROOT}packages/cli/dist/bin.js`, "build", "--help"], { encoding: "utf8" });
     expect(buildHelp).toContain("--from-guide");
     expect(buildHelp).toContain("--video");

@@ -12,6 +12,7 @@ export default defineConfig({
     ],
   },
   test: {
+    globalSetup: ["./vitest.global-setup.ts"],
     include: ["packages/*/test/**/*.test.ts"],
     testTimeout: 30_000,
     hookTimeout: 120_000,

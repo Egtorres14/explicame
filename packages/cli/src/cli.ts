@@ -15,6 +15,9 @@ import { createFakeVoiceProvider } from "./voice/fake.js";
 import { buildVoiceProviders } from "./voice/index.js";
 import { VoiceError, voiceGuide } from "./voice/provider.js";
 import { recordGuide, RecordError } from "./record.js";
+import { runMcpServer } from "./mcp/server.js";
+
+export const VERSION = "0.1.0";
 
 export function exitCodeFor(error: unknown): number {
   if (error instanceof VerifyError || error instanceof LoopError || error instanceof RecordError) return 1;
@@ -67,7 +70,7 @@ export function createProgram(): Command {
   program
     .name("explicame")
     .description("Onboarding narrado para cada funcionalidad nueva · Narrated onboarding for every new feature")
-    .version("0.1.0");
+    .version(VERSION);
 
   program
     .command("build")
@@ -135,6 +138,17 @@ export function createProgram(): Command {
     .command("login")
     .description("inicia sesión en tu app una vez y guarda la sesión · log in to your app once and keep the session")
     .action(() => run(({ cwd, config, log }) => login({ cwd, config, log })));
+
+  program
+    .command("mcp")
+    .description("servidor MCP para el plugin de Claude Code (stdio) · MCP server for the Claude Code plugin (stdio)")
+    .action(async () => {
+      // The plugin passes ${CLAUDE_PROJECT_DIR}; a value that still has "${" was not expanded by the client.
+      const declared = process.env.EXPLICAME_PROJECT_DIR;
+      const cwd = declared && !declared.includes("${") ? resolve(declared) : process.cwd();
+      const cli = process.env.EXPLICAME_CLI;
+      await runMcpServer({ cwd, home: explicameHome(), version: VERSION, cliCommand: cli ? `node "${cli}"` : "explicame" });
+    });
 
   return program;
 }

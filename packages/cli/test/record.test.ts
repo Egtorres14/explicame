@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -77,7 +77,6 @@ describe("what the recorded page may ask for", () => {
 describe("recordGuide on the demo app", () => {
   let server: TestServer;
   beforeAll(async () => {
-    execSync("npm run build -w @explicame/player", { cwd: ROOT, stdio: "pipe" });
     await viteBuild({ root: DEMO, logLevel: "silent" });
     server = await startServer(join(DEMO, "dist"));
   }, 180_000);
