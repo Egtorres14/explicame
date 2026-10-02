@@ -28,3 +28,29 @@ export function createElevenLabsProvider(o: { apiKey: string; model?: string; vo
     },
   };
 }
+
+/**
+ * Instant Voice Clone from recordings of the person who trains. Only with their explicit consent (spec §9):
+ * the panel shows the checkbox and this function refuses without it.
+ */
+export async function cloneElevenLabsVoice(o: {
+  apiKey: string;
+  name: string;
+  files: { name: string; data: Buffer }[];
+  consent: boolean;
+  fetchImpl?: typeof fetch;
+}): Promise<string> {
+  if (o.consent !== true) throw new VoiceError("Cloning a voice needs the explicit consent of the person whose voice it is.");
+  if (o.files.length === 0) throw new VoiceError("Cloning a voice needs at least one recording.");
+  const form = new FormData();
+  form.append("name", o.name);
+  form.append("remove_background_noise", "true");
+  for (const file of o.files) form.append("files", new Blob([new Uint8Array(file.data)]), file.name);
+  const response = await (o.fetchImpl ?? fetch)("https://api.elevenlabs.io/v1/voices/add", {
+    method: "POST",
+    headers: { "xi-api-key": o.apiKey },
+    body: form,
+  });
+  if (!response.ok) throw new VoiceError(`ElevenLabs ${response.status}: ${(await response.text()).slice(0, 200)}`);
+  return ((await response.json()) as { voice_id: string }).voice_id;
+}

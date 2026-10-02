@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Guide } from "@explicame/core";
 import { ConfigSchema } from "../src/config.js";
 import { createDeepgramProvider } from "../src/voice/deepgram.js";
-import { createElevenLabsProvider } from "../src/voice/elevenlabs.js";
+import { cloneElevenLabsVoice, createElevenLabsProvider } from "../src/voice/elevenlabs.js";
 import { createFakeVoiceProvider, silentMp3 } from "../src/voice/fake.js";
 import { buildVoiceProviders } from "../src/voice/index.js";
 import { createOpenAiProvider } from "../src/voice/openai.js";
@@ -154,5 +154,26 @@ describe("more providers", () => {
     const up: VoiceProvider = { id: "b", model: "m", voiceFor: () => "voz-b", async synthesize(r) { asked.push(r.voice); return silentMp3(1); } };
     await synthesizeWithCache([down, up], { text: "Hola", lang: "es", speed: 1 }, dir, 1, noSleep);
     expect(asked).toEqual(["voz-a", "voz-b"]);
+  });
+});
+
+describe("ElevenLabs voice cloning", () => {
+  const files = [{ name: "muestra.mp3", data: Buffer.from([1, 2, 3]) }];
+
+  it("refuses to clone without explicit consent", async () => {
+    const fetchImpl = vi.fn();
+    await expect(cloneElevenLabsVoice({ apiKey: "k", name: "Gabriel", files, consent: false, fetchImpl: fetchImpl as unknown as typeof fetch })).rejects.toThrow(/consent/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("uploads the recordings and returns the new voice id", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ voice_id: "cloned123", requires_verification: false }));
+    expect(await cloneElevenLabsVoice({ apiKey: "el", name: "Gabriel", files, consent: true, fetchImpl: fetchImpl as unknown as typeof fetch })).toBe("cloned123");
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.elevenlabs.io/v1/voices/add");
+    expect((init.headers as Record<string, string>)["xi-api-key"]).toBe("el");
+    const form = init.body as FormData;
+    expect(form.get("name")).toBe("Gabriel");
+    expect(form.getAll("files")).toHaveLength(1);
   });
 });

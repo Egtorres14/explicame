@@ -96,6 +96,17 @@ describe("build --from-guide", () => {
     expect(existsSync(join(out, "explicame-player.js"))).toBe(true);
   });
 
+  it("leaves the narration to the browser voice without generating audio", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "explicame-browser-voice-"));
+    await writeFile(join(dir, "guide.json"), JSON.stringify(verified()));
+    const logs: string[] = [];
+    const config = ConfigSchema.parse({ outputDir: "public/explicame", voice: { provider: "browser" } });
+    const result = await build({ cwd: dir, config, credentials: {}, fromGuide: "guide.json", home, log: (m) => logs.push(m) });
+    expect(result.guide.steps[0]!.audio).toBeUndefined();
+    expect(existsSync(join(dir, "public", "explicame", "filtro-por-fecha", "audio"))).toBe(false);
+    expect(logs).toContain("Voz del navegador: la guía se narrará con la voz del sistema de quien la vea. Para el MP4 elige otro proveedor.");
+  });
+
   it("says which guide it could not read", async () => {
     const config = ConfigSchema.parse({ outputDir: join(cwd, "out") });
     const error = await build({ cwd, config, credentials: {}, fromGuide: "no-existe.json", home }).catch((e: unknown) => e);

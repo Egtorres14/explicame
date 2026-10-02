@@ -6,7 +6,10 @@ import { promisify } from "node:util";
 import { LANGUAGES, t, type AllowRule, type Guide, type Lang } from "@explicame/core";
 import { openSession } from "./browser/session.js";
 import { ConfigError } from "./config.js";
+import { findFfmpeg } from "./ffmpeg.js";
 import { playerBundlePath } from "./player.js";
+
+export { findFfmpeg };
 
 const run = promisify(execFile);
 const TAIL_MS = 1200;
@@ -86,14 +89,6 @@ export function ffmpegArgs(o: { video: string; audios: { file: string; offsetMs:
   ];
 }
 
-export async function findFfmpeg(lang: Lang, candidate = "ffmpeg"): Promise<string> {
-  try {
-    await run(candidate, ["-version"]);
-    return candidate;
-  } catch {
-    throw new ConfigError(t(lang, "record.noFfmpeg"));
-  }
-}
 
 export interface RecordOptions {
   guide: Guide;

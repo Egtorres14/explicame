@@ -174,12 +174,16 @@ async function publish(o: BuildOptions, verified: Guide, home: string, log: (mes
   const dir = join(outputRoot, verified.id);
   let guide = verified;
   if (o.voice !== false) {
-    const providers = o.voiceProviders ?? buildVoiceProviders(o.config, o.credentials);
-    if (providers.length === 0) log(t(lang, "voice.noProvider"));
-    guide = await voiceGuide(guide, {
-      providers, guideDir: dir, cacheDir: join(home, "cache", "voice"),
-      speed: o.config.voice.speed, onWarn: log, lang,
-    });
+    const providers = o.voiceProviders ?? buildVoiceProviders(o.config, o.credentials, { home });
+    if (providers.length === 0) {
+      // Without audio files the player narrates with speechSynthesis; record asks for real audio.
+      log(t(lang, o.config.voice.provider === "browser" ? "voice.browser" : "voice.noProvider"));
+    } else {
+      guide = await voiceGuide(guide, {
+        providers, guideDir: dir, cacheDir: join(home, "cache", "voice"),
+        speed: o.config.voice.speed, onWarn: log, lang,
+      });
+    }
   }
   await writeGuide(outputRoot, guide);
   await copyPlayer(outputRoot);

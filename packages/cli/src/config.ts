@@ -29,6 +29,8 @@ export const ConfigSchema = z.strictObject({
       model: z.string().min(1).optional(),
       speed: z.number().min(0.5).max(2).default(1),
       fallback: z.array(z.enum(VOICE_PROVIDERS)).default([]),
+      /** Local TTS command for provider "command", e.g. "kokoro {textFile} {out} --voice {voice}". */
+      command: z.string().min(1).optional(),
     })
     .prefault({}),
   outputDir: z.string().min(1).default("public/explicame"),

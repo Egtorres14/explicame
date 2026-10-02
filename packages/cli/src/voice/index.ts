@@ -1,5 +1,7 @@
 import type { Config } from "../config.js";
 import type { Credentials } from "../credentials.js";
+import { findFfmpeg } from "../ffmpeg.js";
+import { createCommandProvider } from "./command.js";
 import { createDeepgramProvider } from "./deepgram.js";
 import { createElevenLabsProvider } from "./elevenlabs.js";
 import { createFakeVoiceProvider } from "./fake.js";
@@ -23,6 +25,9 @@ export function buildVoiceProviders(config: Config, creds: Credentials, o: { hom
     if (id === "elevenlabs" && main && creds.elevenlabs) providers.push(createElevenLabsProvider({ apiKey: creds.elevenlabs, model, voices }));
     if (id === "deepgram" && creds.deepgram) providers.push(createDeepgramProvider({ apiKey: creds.deepgram, voices }));
     if (id === "openai" && creds.openai) providers.push(createOpenAiProvider({ apiKey: creds.openai, model, voices }));
+    if (id === "command" && config.voice.command) {
+      providers.push(createCommandProvider({ template: config.voice.command, voices, ffmpeg: () => findFfmpeg(config.uiLanguage) }));
+    }
   }
   return providers;
 }
