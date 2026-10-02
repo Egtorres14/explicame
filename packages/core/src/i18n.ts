@@ -34,6 +34,11 @@ const es = {
   "record.done": "Video listo: {path}",
   "piper.engine": "Descargando Piper {release} (unos 25 MB) en {dir}. Piper (MIT) trae espeak-ng (GPL-3.0); explicame lo ejecuta como un programa aparte.",
   "piper.voice": "Descargando la voz de Piper {voice}…",
+  "panel.ready": "Panel listo en {url} (Ctrl+C para cerrarlo)",
+  "panel.portBusy": "El puerto {port} está ocupado: prueba con explicame panel --port 4848.",
+  "panel.busy": "Ya hay una generación en curso: espera a que termine.",
+  "panel.noVoice": "No puedo usar la voz {provider}: revisa su clave o su configuración.",
+  "panel.badToken": "Abre el panel con el enlace que mostró la terminal (incluye el token de la sesión).",
   "player.hint": "Para verla en tu app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 } as const;
 
@@ -71,6 +76,11 @@ const en: Record<keyof typeof es, string> = {
   "record.done": "Video ready: {path}",
   "piper.engine": "Downloading Piper {release} (about 25 MB) into {dir}. Piper (MIT) bundles espeak-ng (GPL-3.0); explicame runs it as a separate program.",
   "piper.voice": "Downloading the Piper voice {voice}…",
+  "panel.ready": "Panel ready at {url} (Ctrl+C to close it)",
+  "panel.portBusy": "Port {port} is busy: try explicame panel --port 4848.",
+  "panel.busy": "A generation is already running: wait for it to finish.",
+  "panel.noVoice": "I can't use the {provider} voice: check its key or settings.",
+  "panel.badToken": "Open the panel with the link the terminal printed (it carries the session token).",
   "player.hint": "To see it in your app: <script src=\"/explicame/explicame-player.js\"></script><script>Explicame.mount()</script>",
 };
 

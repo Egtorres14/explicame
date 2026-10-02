@@ -16,8 +16,9 @@ import { buildVoiceProviders } from "./voice/index.js";
 import { VoiceError, voiceGuide } from "./voice/provider.js";
 import { recordLanguages, RecordError } from "./record.js";
 import { runMcpServer } from "./mcp/server.js";
+import { VERSION } from "./version.js";
 
-export const VERSION = "0.1.0";
+export { VERSION } from "./version.js";
 
 export function exitCodeFor(error: unknown): number {
   if (error instanceof VerifyError || error instanceof LoopError || error instanceof RecordError) return 1;

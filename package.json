@@ -12,7 +12,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "npm run build -w @explicame/player && npm run build -w explicame"
+    "build": "npm run build -w @explicame/player && npm run build -w @explicame/panel && npm run build -w explicame"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

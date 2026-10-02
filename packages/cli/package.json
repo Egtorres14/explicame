@@ -18,6 +18,7 @@
     "build": "tsup"
   },
   "dependencies": {
+    "@explicame/panel": "0.1.0",
     "@anthropic-ai/sdk": "^0.131.0",
     "@explicame/player": "0.1.0",
     "@modelcontextprotocol/sdk": "^1.31.0",
