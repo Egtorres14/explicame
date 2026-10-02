@@ -6,7 +6,8 @@ grabación de `explicame record` y `render.mjs` captura cuadro a cuadro (30 fps)
 
 1. `npm run build` en la raíz.
 2. Graba la guía de la app de ejemplo (servida en http://localhost:5173), en `examples/demo-app`:
-   `node ../../packages/cli/dist/bin.js build --from-guide public/explicame/filtrar-reportes-por-fecha/guide.json --video`
+   `node ../../packages/cli/dist/bin.js record public/explicame/filtrar-reportes-por-fecha/guide.json`
+   (la guía ya trae su audio; `record` solo escribe en `.explicame/videos/`, que no se versiona).
 3. `npm run video` (o `npm run video -- --lang es`). Los MP4 quedan en `video/out/`.
 
 Narración con ElevenLabs v4: define `ELEVENLABS_API_KEY`, `EXPLICAME_VIDEO_VOICE_ES` y `EXPLICAME_VIDEO_VOICE_EN`
