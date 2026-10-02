@@ -29,11 +29,15 @@ export interface GuideSessionOptions {
 }
 
 type Repairing = { kind: "repairing"; guide: Guide; index: number; attempted: Set<number>; state: ExplorationState };
-type Phase = { kind: "idle" } | { kind: "exploring"; state: ExplorationState } | Repairing;
+/** A finished guide whose verification broke (app down, browser gone): kept so that finish can try again. */
+type Unverified = { kind: "unverified"; guide: Guide; attempted: Set<number>; error: string };
+type Phase = { kind: "idle" } | { kind: "exploring"; state: ExplorationState } | Repairing | Unverified;
 
 const ok = (text: string): ToolReply => ({ text, isError: false });
 const fail = (text: string): ToolReply => ({ text, isError: true });
 const toolNames: readonly string[] = TOOL_NAMES;
+const unverifiedText = (p: Unverified) =>
+  `The guide "${p.guide.id}" is complete, but it could not be verified (${p.error}). Once the app is reachable, call finish again to retry.`;
 
 /**
  * The exploration loop of plugin mode. Claude Code calls the tools through the MCP server and this class
@@ -68,6 +72,9 @@ export class GuideSession {
       if (!toolNames.includes(name)) return fail(`Unknown tool ${name}.`);
       const config = (this.config ??= await loadConfig(this.o.cwd));
       if (this.phase.kind === "repairing") return await this.repair(config, this.phase, name, input);
+      if (this.phase.kind === "unverified") {
+        return name === "finish" ? await this.verifyOrKeep(config, this.phase.guide, this.phase.attempted) : fail(unverifiedText(this.phase));
+      }
       let state: ExplorationState;
       if (this.phase.kind === "exploring") {
         state = this.phase.state;
@@ -93,7 +100,7 @@ export class GuideSession {
       source: { base: config.base, head: "HEAD", commit: await headCommit(this.o.cwd), generatedBy: "claude-code" },
     });
     await this.closePhase();
-    return this.verifyAndSave(config, guide, new Set());
+    return this.verifyOrKeep(config, guide, new Set());
   }
 
   private async repair(config: Config, phase: Repairing, name: string, input: unknown): Promise<ToolReply> {
@@ -103,7 +110,19 @@ export class GuideSession {
     if (!replacement) return { text: result.content, isError: result.isError === true };
     await this.closePhase();
     const guide = { ...phase.guide, steps: phase.guide.steps.map((step, index) => (index === phase.index ? replacement : step)) };
-    return this.verifyAndSave(config, guide, phase.attempted);
+    return this.verifyOrKeep(config, guide, phase.attempted);
+  }
+
+  /** Verifies and saves; when the check itself breaks, the guide waits in "unverified" for the next finish. */
+  private async verifyOrKeep(config: Config, guide: Guide, attempted: Set<number>): Promise<ToolReply> {
+    try {
+      return await this.verifyAndSave(config, guide, attempted);
+    } catch (error) {
+      await this.closePhase();
+      const phase: Unverified = { kind: "unverified", guide, attempted, error: (error as Error).message };
+      this.phase = phase;
+      return fail(unverifiedText(phase));
+    }
   }
 
   private async verifyAndSave(config: Config, guide: Guide, attempted: Set<number>): Promise<ToolReply> {
@@ -126,8 +145,9 @@ export class GuideSession {
       const shot = failure.screenshot ? ` Screenshot: ${failure.screenshot}` : "";
       return fail(`Step ${failure.index + 1} failed again when the guide was replayed: ${failure.error}. The guide was not saved.${shot}`);
     }
-    attempted.add(failure.index);
     const session = await openAtStep(guide, failure.index, open, timeoutMs);
+    // Counted only once the repair really opens: a broken replay must not use up the step's one repair.
+    attempted.add(failure.index);
     const state: ExplorationState = { session, languages: guide.languages, maxSteps: Number.MAX_SAFE_INTEGER, steps: [], title: null };
     this.phase = { kind: "repairing", guide, index: failure.index, attempted, state };
     return fail(repairMessage(failure.index, failure.error, JSON.stringify(await observe(session.page))));
@@ -136,7 +156,7 @@ export class GuideSession {
   private async closePhase(): Promise<void> {
     const phase = this.phase;
     this.phase = { kind: "idle" };
-    if (phase.kind !== "idle") await phase.state.session.close().catch(() => {});
+    if (phase.kind === "exploring" || phase.kind === "repairing") await phase.state.session.close().catch(() => {});
   }
 
   private open(config: Config): Promise<Session> {

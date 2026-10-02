@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createHash } from "node:crypto";
-import { basename, join, resolve } from "node:path";
+import { join, posix, resolve, win32 } from "node:path";
 import {
   buildTools, initialMessage, systemPrompt, t, validateGuide,
   type Guide, type Lang, type LocalizedText, type Step,
@@ -49,10 +49,13 @@ export type GuideSource = Omit<Guide["source"], "createdAt">;
 
 const NO_USAGE: Usage = { inputTokens: 0, outputTokens: 0 };
 
-export function sessionPath(home: string, cwd: string): string {
-  const absolute = resolve(cwd);
-  const hash = createHash("sha256").update(absolute).digest("hex").slice(0, 8);
-  return join(home, "sessions", `${basename(absolute)}-${hash}.json`);
+export function sessionPath(home: string, cwd: string, platform: NodeJS.Platform = process.platform): string {
+  const path = platform === "win32" ? win32 : posix;
+  const absolute = path.resolve(cwd);
+  // Windows paths ignore case: Claude Code's "c:/x" and a shell's "C:\x" are the same project and the same session.
+  const key = platform === "win32" ? absolute.toLowerCase() : absolute;
+  const hash = createHash("sha256").update(key).digest("hex").slice(0, 8);
+  return join(home, "sessions", `${path.basename(key)}-${hash}.json`);
 }
 
 export function assembleGuide(x: {

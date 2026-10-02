@@ -17,7 +17,7 @@ const TYPES: Record<string, string> = {
 };
 
 /** Static server for tests. Any non-GET request under /api/ answers 200 and is recorded in `hits`. */
-export async function startServer(root: string, o: { headers?: Record<string, string> } = {}): Promise<TestServer> {
+export async function startServer(root: string, o: { headers?: Record<string, string>; port?: number } = {}): Promise<TestServer> {
   const hits: TestServer["hits"] = [];
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -39,12 +39,16 @@ export async function startServer(root: string, o: { headers?: Record<string, st
       res.end("not found");
     }
   });
-  await new Promise<void>((done) => server.listen(0, "127.0.0.1", () => done()));
+  await new Promise<void>((done) => server.listen(o.port ?? 0, "127.0.0.1", () => done()));
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : 0;
   return {
     url: `http://127.0.0.1:${port}`,
     hits,
-    close: () => new Promise<void>((done) => server.close(() => done())),
+    close: () =>
+      new Promise<void>((done) => {
+        server.closeAllConnections();
+        server.close(() => done());
+      }),
   };
 }

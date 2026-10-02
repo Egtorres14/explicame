@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Guide } from "@explicame/core";
-import { build } from "../src/build.js";
+import { build, sessionPath } from "../src/build.js";
 import { ConfigError, ConfigSchema } from "../src/config.js";
 import type { LlmDriver } from "../src/generate/driver.js";
 import { createFakeDriver } from "../src/generate/fakeDriver.js";
@@ -25,6 +25,13 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await server.close();
+});
+
+describe("sessionPath", () => {
+  it("finds the same saved session for one Windows folder written two ways", () => {
+    expect(sessionPath("H", "c:/users/ana/app", "win32")).toBe(sessionPath("H", "C:\\Users\\Ana\\App", "win32"));
+    expect(sessionPath("H", "/home/ana/App", "linux")).not.toBe(sessionPath("H", "/home/ana/app", "linux"));
+  });
 });
 
 describe("build guards", () => {

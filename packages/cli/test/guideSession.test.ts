@@ -164,6 +164,30 @@ describe("GuideSession", () => {
     }
   }, 60_000);
 
+  it("keeps the finished guide when the app is down during verification and verifies it again on the next finish", async () => {
+    const app = await startServer(SITE);
+    const port = Number(new URL(app.url).port);
+    const { cwd, session } = await project(app.url);
+    try {
+      const first = await session.call("observe", {});
+      await session.call("add_step", step(say("Aquí filtras.", "Here you filter."), idOf(first, "Filtrar")));
+      await app.close();
+      const down = await session.call("finish", { title: say("Reintento", "Retry") });
+      expect(down.isError).toBe(true);
+      expect(down.text).toContain("call finish again");
+      expect((await session.call("observe", {})).text).toContain("call finish again");
+      const back = await startServer(SITE, { port });
+      try {
+        expect(await session.call("finish", { title: say("Reintento", "Retry") })).toEqual({ isError: false, text: expect.stringContaining("passed verification (1 steps)") });
+        expect((await readGuide(join(cwd, "public", "explicame", "reintento", "guide.json"))).steps).toHaveLength(1);
+      } finally {
+        await back.close();
+      }
+    } finally {
+      await session.close();
+    }
+  }, 60_000);
+
   it("reports an app that is not running as a tool error", async () => {
     const { session } = await project("http://127.0.0.1:9");
     expect(await session.call("observe", {})).toEqual({ isError: true, text: "No pude abrir http://127.0.0.1:9/: ¿está corriendo la app?" });

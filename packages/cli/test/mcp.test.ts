@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ConfigSchema } from "../src/config.js";
 import { GuideSession } from "../src/mcp/guideSession.js";
 import { createMcpServer } from "../src/mcp/server.js";
@@ -89,6 +89,44 @@ describe("explicame mcp", () => {
     try {
       const finish = (await client.listTools()).tools.find((tool) => tool.name === "finish")!;
       expect((finish.inputSchema as Schema).properties!.title!.required).toEqual(["en"]);
+    } finally {
+      await client.close();
+    }
+  }, 60_000);
+
+  it("closes an open browser and exits with 0 when the pipe closes, with only protocol messages on stdout", async () => {
+    const child = spawn(process.execPath, [BIN, "mcp"], {
+      env: childEnv({ EXPLICAME_PROJECT_DIR: project, EXPLICAME_HOME: home }),
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    const send = (message: object) => child.stdin.write(`${JSON.stringify(message)}\n`);
+    send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "0" } } });
+    await vi.waitFor(() => expect(stdout).toContain('"id":1'), { timeout: 15_000 });
+    send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    send({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "observe", arguments: {} } });
+    await vi.waitFor(() => expect(stdout).toContain('"id":2'), { timeout: 30_000 });
+    const exited = new Promise<number | null>((done) => child.once("exit", (code) => done(code)));
+    child.stdin.end();
+    expect(await exited).toBe(0);
+    for (const line of stdout.split("\n").filter(Boolean)) expect(JSON.parse(line)).toMatchObject({ jsonrpc: "2.0" });
+  }, 60_000);
+
+  it("answers with how to install Chromium when it is missing, and keeps serving", async () => {
+    const transport = new StdioClientTransport({
+      command: process.execPath, args: [BIN, "mcp"], stderr: "ignore",
+      env: childEnv({ EXPLICAME_PROJECT_DIR: project, EXPLICAME_HOME: home, PLAYWRIGHT_BROWSERS_PATH: await mkdtemp(join(tmpdir(), "explicame-no-browsers-")) }),
+    });
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(transport);
+    try {
+      const observed = await client.callTool({ name: "observe", arguments: {} });
+      expect(observed.isError).toBe(true);
+      expect(textOf(observed)).toContain("playwright install");
+      expect((await client.listTools()).tools).toHaveLength(4);
     } finally {
       await client.close();
     }
