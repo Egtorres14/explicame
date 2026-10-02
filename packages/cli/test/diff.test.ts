@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ConfigError } from "../src/config.js";
-import { fitDiff, getChangeContext } from "../src/diff.js";
+import { fitDiff, getChangeContext, headCommit } from "../src/diff.js";
 
 const run = promisify(execFile);
 const git = (cwd: string, ...args: string[]) => run("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd });
@@ -58,5 +58,13 @@ describe("fitDiff", () => {
     expect(text).toContain("src/Filter.tsx");
     expect(text).not.toContain("src/server.ts");
     expect(omitted).toEqual(["src/server.ts"]);
+  });
+});
+
+describe("headCommit", () => {
+  it("returns the short hash of HEAD, or unknown outside a repository", async () => {
+    const { stdout } = await git(repo, "rev-parse", "--short", "HEAD");
+    expect(await headCommit(repo)).toBe(stdout.trim());
+    expect(await headCommit(await mkdtemp(join(tmpdir(), "explicame-nogit-")))).toBe("unknown");
   });
 });

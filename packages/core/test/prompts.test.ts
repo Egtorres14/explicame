@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { initialMessage, repairMessage, systemPrompt } from "../src/prompts.js";
+import { initialMessage, pluginPrompt, repairMessage, systemPrompt } from "../src/prompts.js";
 
 describe("prompts", () => {
+  it("plugin prompt keeps the loop rules and explains how finish verifies and repairs", () => {
+    const text = pluginPrompt(["es"], 8);
+    expect(text.startsWith(systemPrompt(["es"], 8))).toBe(true);
+    expect(text).toContain("finish replays the whole guide in a fresh browser");
+    expect(text).toContain("call add_step once with the replacement");
+  });
+
   it("system prompt names the languages and the step limit", () => {
     const text = systemPrompt(["es", "en"], 12);
     expect(text).toContain("Spanish (es) and English (en)");

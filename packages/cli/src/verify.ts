@@ -64,6 +64,21 @@ export async function verifyGuide(guide: Guide, open: () => Promise<Session>, o:
   }
 }
 
+/** Opens a fresh session and replays the steps before `index`, so the screen is where that step starts. */
+export async function openAtStep(guide: Guide, index: number, open: () => Promise<Session>, timeoutMs: number, lang: Lang = "en"): Promise<Session> {
+  const session = await open();
+  try {
+    for (const step of guide.steps.slice(0, index)) {
+      const error = await replayStep(session, step, timeoutMs);
+      if (error) throw new VerifyError({ index, error }, lang);
+    }
+    return session;
+  } catch (error) {
+    await session.close();
+    throw error;
+  }
+}
+
 export interface RepairOptions {
   guide: Guide;
   driver: LlmDriver;
@@ -91,12 +106,8 @@ export async function verifyAndRepair(o: RepairOptions): Promise<Guide> {
     attempted.add(failure.index);
     o.log?.(t(lang, "verify.failed", { index: failure.index + 1, error: failure.error }));
 
-    const session = await o.open();
+    const session = await openAtStep(guide, failure.index, o.open, timeoutMs, lang);
     try {
-      for (const step of guide.steps.slice(0, failure.index)) {
-        const error = await replayStep(session, step, timeoutMs);
-        if (error) throw new VerifyError({ index: failure.index, error }, lang);
-      }
       const state: ExplorationState = { session, languages: guide.languages, maxSteps: Number.MAX_SAFE_INTEGER, steps: [], title: null };
       let turn = await o.driver.reply(pending, repairMessage(failure.index, failure.error, JSON.stringify(await observe(session.page))));
       pending = [];

@@ -74,3 +74,12 @@ export async function getChangeContext(o: ChangeOptions): Promise<ChangeContext>
   );
   return { base, head, commit, diff: text, files, description: o.description, omittedFiles: omitted };
 }
+
+/** Short hash of HEAD, or "unknown" outside a git repository. */
+export async function headCommit(cwd: string): Promise<string> {
+  try {
+    return (await run("git", ["rev-parse", "--short", "HEAD"], { cwd })).stdout.trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}

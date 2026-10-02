@@ -47,3 +47,13 @@ export function repairMessage(index: number, error: string, observationJson: str
     `Call add_step once with the replacement for step ${index + 1}, pointing at an element from this observation.`,
   ].join("\n");
 }
+
+/** System prompt for plugin mode: the same rules, plus how finish verifies the guide and how a step is repaired. */
+export function pluginPrompt(languages: Lang[], maxSteps: number): string {
+  return [
+    systemPrompt(languages, maxSteps),
+    "",
+    "In this mode you read the diff yourself (for example with git diff) before you start exploring.",
+    "finish replays the whole guide in a fresh browser. If a step fails, finish returns the error and the screen right before that step: call add_step once with the replacement for that step (you may observe or act first). The guide is then verified again automatically, and it is saved only when every step passes.",
+  ].join("\n");
+}
