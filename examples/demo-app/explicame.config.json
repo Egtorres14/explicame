@@ -3,5 +3,10 @@
   "base": "main",
   "languages": ["es", "en"],
   "mode": "plugin",
-  "voice": { "provider": "piper" }
+  "voice": {
+    "provider": "elevenlabs",
+    "model": "eleven_v4",
+    "voices": { "es": "x5IDPSl4ZUbhosMmVFTk", "en": "XfNU2rGpBa01ckF309OY" },
+    "fallback": ["piper"]
+  }
 }
