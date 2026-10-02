@@ -40,7 +40,7 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3L17 9"/></svg>',
   wave: '<svg viewBox="0 0 24 24"><path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 6v12"/></svg>',
   play: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z"/></svg>',
-  ring: '<svg viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="7" rx="2"/><rect x="1" y="5" width="16" height="11" rx="4" stroke-dasharray="3 2"/><path d="M15 15l5 5M17 20h3v-3"/></svg>',
+  ring: '<svg viewBox="0 0 24 24"><path d="M11 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6"/><path d="M3 8h18"/><rect x="6.5" y="11.5" width="4" height="4" rx="1"/><path d="M13 13l8 3-3.5 1.3L16 21z"/></svg>',
   shield: '<svg viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
   plug: '<svg viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 01-12 0zM12 17v5"/></svg>',
   key: '<svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg>',
@@ -71,8 +71,9 @@ const builders = {
     tl.to("#s-intro .hero", { opacity: 0, duration: 0.5 }, c1.start + 1.7);
     tl.fromTo("#s-intro .card", { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.2, ease: "back.out(1.4)" }, c1.start + 1.9);
     tl.to("#s-intro .card", { opacity: 0, y: -40, duration: 0.5, stagger: 0.08, ease: "power2.in" }, c2.start - 0.1);
-    show("#s-intro .late", c2.start + 0.35, { opacity: 0, scale: 0.85 });
-    tl.fromTo("#s-intro .hand", { rotation: 0 }, { rotation: 720, svgOrigin: "60 60", duration: 2.4, ease: "power1.inOut" }, c2.start + 0.35);
+    // After the cards have left: they fade out until about c2.start + 0.56 and sit where the clock appears.
+    show("#s-intro .late", c2.start + 0.6, { opacity: 0, scale: 0.85 });
+    tl.fromTo("#s-intro .hand", { rotation: 0 }, { rotation: 720, svgOrigin: "60 60", duration: 2.4, ease: "power1.inOut" }, c2.start + 0.6);
     show("#s-intro .question", c2.start + Math.min(2.3, span(c2) * 0.42), { opacity: 0, y: 30 }, 0.8);
     hide("#s-intro", s.end - 0.45);
   },
@@ -113,7 +114,7 @@ const builders = {
   modes(s) {
     const [c7, c8] = s.chunks;
     tl.set("#s-modes", { opacity: 1 }, s.start);
-    tl.fromTo("#s-modes .mode", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.35, ease: "power3.out" }, c7.start + 0.2);
+    tl.fromTo("#s-modes .mode", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.35, ease: "power3.out" }, s.start + 0.1);
     tl.to("#s-modes .mode", { opacity: 0, y: -60, scale: 0.9, duration: 0.5, ease: "power2.in" }, c8.start - 0.1);
     show("#s-modes .panel-shot", c8.start + 0.25, { opacity: 0, y: 80, scale: 0.94 }, 0.9);
     tl.fromTo("#s-modes .chips span", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.18, ease: "back.out(1.8)" }, c8.start + span(c8) * 0.45);

@@ -45,7 +45,8 @@ async function seconds(file) {
   return Number(stdout.trim());
 }
 
-/** Every chunk of the script becomes a narration-only step of a throwaway guide, voiced by `explicame voice`. */
+/** Every chunk of the script becomes a narration-only step of a throwaway guide, voiced by `explicame voice`.
+ * A chunk's es_say / en_say is what the voice reads when it must differ from the caption (how to say a name). */
 async function narrate() {
   const project = await mkdtemp(join(tmpdir(), "explicame-video-"));
   const chunks = script.scenes.flatMap((scene) => scene.chunks);
@@ -58,7 +59,7 @@ async function narrate() {
   await mkdir(dir, { recursive: true });
   const guide = {
     schemaVersion: 1, id: "video", languages: ["es", "en"], title: { es: "Video", en: "Video" }, startUrl: "/",
-    steps: chunks.map((chunk) => ({ narration: { es: chunk.es, en: chunk.en } })),
+    steps: chunks.map((chunk) => ({ narration: { es: chunk.es_say ?? chunk.es, en: chunk.en_say ?? chunk.en } })),
     source: { base: "video", head: "video", commit: "video", generatedBy: "fake", createdAt: new Date().toISOString() },
   };
   await writeFile(join(dir, "guide.json"), JSON.stringify(guide));

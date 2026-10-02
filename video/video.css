@@ -77,7 +77,6 @@ i[data-icon] svg { width: 100%; height: 100%; fill: none; stroke: currentColor; 
 .safety-items { position: absolute; top: 340px; left: 780px; display: grid; gap: 70px; }
 .item { position: relative; display: flex; align-items: center; gap: 34px; font-size: 38px; opacity: 0; }
 .fake-btn { position: relative; padding: 18px 40px; border-radius: 14px; background: #4f46e5; font-size: 40px; }
-.item .ring { left: -12px; top: -12px; width: 198px; height: 104px; inset: auto; opacity: 0; }
 .note { color: var(--amber); }
 .request code { padding: 16px 28px; border-radius: 14px; background: rgba(0, 0, 0, 0.45); border: 1px solid var(--line); font: 34px "Cascadia Code", Consolas, monospace; }
 .strike { position: absolute; left: -8px; top: 50%; width: 0; height: 6px; background: var(--red); border-radius: 3px; }
@@ -90,7 +89,7 @@ i[data-icon] svg { width: 100%; height: 100%; fill: none; stroke: currentColor; 
 .mode h3 { font-size: 48px; }
 .mode p { font-size: 32px; color: var(--muted); }
 .mode code { margin-top: auto; padding: 16px 22px; border-radius: 14px; background: rgba(0, 0, 0, 0.45); font: 30px "Cascadia Code", Consolas, monospace; color: var(--teal); }
-.panel-shot { position: absolute; top: 96px; left: 50%; width: 1100px; margin-left: -550px; border-radius: 22px; border: 1px solid var(--line); box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55); opacity: 0; }
+.panel-shot { position: absolute; top: 120px; left: 50%; width: 1060px; margin-left: -530px; border-radius: 22px; border: 1px solid var(--line); box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55); opacity: 0; }
 .chips { position: absolute; top: 818px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; }
 .chips span { padding: 12px 28px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 30px; opacity: 0; }
 .chips .free { color: var(--teal); }

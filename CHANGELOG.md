@@ -2,6 +2,18 @@
 
 Todos los cambios notables de explicame se anotan aquí. · All notable changes to explicame are listed here.
 
+## Sin publicar · Unreleased
+
+### Corregido · Fixed
+- Reproductor: el anillo, el cursor y el rótulo se dibujan por encima de los diálogos modales y los popovers de
+  la app. Esos elementos viven en la capa superior del navegador y antes los tapaban.
+- `explicame record`: la app se graba a 1280×720 con densidad 1,5. El MP4 sigue en 1920×1080, pero el texto de
+  la app y del rótulo se lee a buen tamaño.
+
+### Video · Video
+- El video explicativo se narra con ElevenLabs `eleven_v4` (Lumina en español, Nichalia en inglés) y la guía de
+  la app de ejemplo trae audio con esas voces, con Piper de respaldo.
+
 ## 0.1.0 — 2026-10-01
 
 Primera versión pública. · First public release.

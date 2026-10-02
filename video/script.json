@@ -11,7 +11,7 @@
     {
       "id": "flow",
       "chunks": [
-        { "es": "Eso hace explicame. Lee el cambio en tu código y abre tu app en un navegador real, para recorrerla como lo haría una persona.", "en": "That is what explicame does. It reads the change in your code and opens your app in a real browser, to walk through it the way a person would." },
+        { "es": "Eso hace explicame. Lee el cambio en tu código y abre tu app en un navegador real, para recorrerla como lo haría una persona.", "en": "That is what explicame does. It reads the change in your code and opens your app in a real browser, to walk through it the way a person would.", "es_say": "Eso hace explícame. Lee el cambio en tu código y abre tu app en un navegador real, para recorrerla como lo haría una persona.", "en_say": "That is what explícame does. It reads the change in your code and opens your app in a real browser, to walk through it the way a person would." },
         { "es": "Con lo que ve, escribe el guion en español y en inglés, lo verifica paso a paso en la pantalla real y le pone voz.", "en": "From what it sees, it writes the script in Spanish and English, verifies every step on the real screen, and gives it a voice." },
         { "es": "El resultado es una guía interactiva dentro de tu app y un video listo para compartir.", "en": "The result is an interactive guide inside your app and a video ready to share." }
       ]
@@ -32,13 +32,13 @@
     {
       "id": "demo",
       "chunks": [
-        { "es": "Así se ve en la app de ejemplo. Esta guía la escribió Claude Code con explicame, y explicame la grabó.", "en": "Here it is on the demo app. Claude Code wrote this guide with explicame, and explicame recorded it." }
+        { "es": "Así se ve en la app de ejemplo. Esta guía la escribió Claude Code con explicame, y explicame la grabó.", "en": "Here it is on the demo app. Claude Code wrote this guide with explicame, and explicame recorded it.", "es_say": "Así se ve en la app de ejemplo. Esta guía la escribió Claude Code con explícame, y explícame la grabó.", "en_say": "Here it is on the demo app. Claude Code wrote this guide with explícame, and explícame recorded it." }
       ]
     },
     {
       "id": "outro",
       "chunks": [
-        { "es": "explicame es de código abierto, con licencia MIT. Lo encuentras en GitHub, en Egtorres14 barra explicame.", "en": "explicame is open source and MIT licensed. Find it on GitHub at Egtorres14 slash explicame." }
+        { "es": "explicame es de código abierto, con licencia MIT, y ya está en GitHub.", "en": "explicame is open source, MIT licensed, and already on GitHub.", "es_say": "explícame es de código abierto, con licencia MIT, y ya está en GitHub.", "en_say": "explícame is open source, MIT licensed, and already on GitHub." }
       ]
     }
   ]
