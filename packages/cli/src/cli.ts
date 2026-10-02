@@ -80,14 +80,15 @@ export function createProgram(): Command {
     .option("--id <id>", "id de la guía (kebab-case)")
     .option("--no-voice", "no generar audio")
     .option("--video", "grabar también el MP4 de cada idioma")
-    .action((opts: { base?: string; head: string; diffFile?: string; files?: string; describe?: string; id?: string; voice: boolean; video?: boolean }) =>
+    .option("--from-guide <path>", "solo voz y publicación de una guía ya verificada (modo plugin), sin IA")
+    .action((opts: { base?: string; head: string; diffFile?: string; files?: string; describe?: string; id?: string; voice: boolean; video?: boolean; fromGuide?: string }) =>
       run(async ({ cwd, config, credentials, log }) => {
         // Testing hooks: a scripted fake AI and silent voices, so CI never needs keys.
         const fakeScript = process.env.EXPLICAME_FAKE_SCRIPT;
         const result = await build({
           cwd, config, credentials, log,
           base: opts.base, head: opts.head, diffFile: opts.diffFile, files: list(opts.files),
-          describe: opts.describe, id: opts.id, voice: opts.voice,
+          describe: opts.describe, id: opts.id, voice: opts.voice, fromGuide: opts.fromGuide,
           driver: fakeScript ? createFakeDriver(await loadFakeScript(resolve(cwd, fakeScript))) : undefined,
           voiceProviders: process.env.EXPLICAME_FAKE_VOICE ? [createFakeVoiceProvider()] : undefined,
         });

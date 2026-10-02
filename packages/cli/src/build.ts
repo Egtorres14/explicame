@@ -8,11 +8,11 @@ import {
 import { openSession } from "./browser/session.js";
 import { ConfigError, type Config } from "./config.js";
 import { explicameHome, requireCredential, type Credentials } from "./credentials.js";
-import { getChangeContext, type ChangeContext } from "./diff.js";
+import { getChangeContext } from "./diff.js";
 import { countFirstTurnTokens, createAnthropicDriver, estimateCostUsd } from "./generate/anthropicDriver.js";
 import type { LlmDriver, Usage } from "./generate/driver.js";
 import { LoopError, runExploration, type ExplorationResult } from "./generate/loop.js";
-import { slugify, writeGuide } from "./output.js";
+import { readGuide, slugify, writeGuide } from "./output.js";
 import { copyPlayer } from "./player.js";
 import { writeReport, writeReportSync } from "./report.js";
 import { verifyAndRepair } from "./verify.js";
@@ -30,6 +30,8 @@ export interface BuildOptions {
   describe?: string;
   id?: string;
   voice?: boolean;
+  /** A guide already generated and verified (plugin mode): only its voice and publishing, no AI. */
+  fromGuide?: string;
   driver?: LlmDriver;
   voiceProviders?: VoiceProvider[];
   home?: string;
@@ -41,6 +43,11 @@ export interface BuildResult {
   dir: string;
   usage: Usage;
 }
+
+/** Where a guide came from; assembleGuide adds the timestamp. */
+export type GuideSource = Omit<Guide["source"], "createdAt">;
+
+const NO_USAGE: Usage = { inputTokens: 0, outputTokens: 0 };
 
 export function sessionPath(home: string, cwd: string): string {
   const absolute = resolve(cwd);
@@ -54,8 +61,7 @@ export function assembleGuide(x: {
   title: LocalizedText;
   steps: Step[];
   startUrl: string;
-  context: ChangeContext;
-  driver: LlmDriver;
+  source: GuideSource;
 }): Guide {
   const firstTitle = x.title[x.languages[0]!] ?? "guia";
   const candidate = {
@@ -65,14 +71,7 @@ export function assembleGuide(x: {
     title: x.title,
     startUrl: x.startUrl,
     steps: x.steps,
-    source: {
-      base: x.context.base,
-      head: x.context.head,
-      commit: x.context.commit,
-      generatedBy: x.driver.id,
-      model: x.driver.model,
-      createdAt: new Date().toISOString(),
-    },
+    source: { ...x.source, createdAt: new Date().toISOString() },
   };
   const result = validateGuide(candidate);
   if (!result.ok) throw new LoopError(`The generated guide is not valid: ${result.errors.join("; ")}`);
@@ -93,7 +92,7 @@ export async function build(o: BuildOptions): Promise<BuildResult> {
   };
   process.once("SIGINT", onInterrupt);
   try {
-    return await runBuild(o, log, reportDir);
+    return await (o.fromGuide !== undefined ? runFromGuide(o, o.fromGuide, log) : runBuild(o, log, reportDir));
   } catch (error) {
     await writeReport(reportDir, { error: (error as Error).message, events });
     (o.log ?? (() => {}))(t(o.config.uiLanguage, "report.saved", { path: reportDir }));
@@ -107,6 +106,8 @@ export async function build(o: BuildOptions): Promise<BuildResult> {
 async function runBuild(o: BuildOptions, log: (message: string) => void, reportDir: string): Promise<BuildResult> {
   const lang = o.config.uiLanguage;
   if (o.id !== undefined && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(o.id)) throw new ConfigError(t(lang, "config.invalidId", { id: o.id }));
+  // In plugin mode Claude Code writes the guide through `explicame mcp`; only a scripted driver may generate here.
+  if (o.config.mode === "plugin" && !o.driver) throw new ConfigError(t(lang, "build.pluginMode"));
   const home = o.home ?? explicameHome();
   const context = await getChangeContext({
     cwd: o.cwd, base: o.base ?? o.config.base, head: o.head ?? "HEAD",
@@ -145,13 +146,30 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
   }
 
   let guide = assembleGuide({
-    id: o.id, languages: o.config.languages, title: exploration.title, steps: exploration.steps,
-    startUrl: o.config.startUrl, context, driver,
+    id: o.id, languages: o.config.languages, title: exploration.title, steps: exploration.steps, startUrl: o.config.startUrl,
+    source: { base: context.base, head: context.head, commit: context.commit, generatedBy: driver.id, model: driver.model },
   });
   guide = await verifyAndRepair({ guide, driver, pendingResults: exploration.pendingResults, open, log, reportDir, lang });
+  return publish(o, guide, home, log, driver.usage());
+}
 
+async function runFromGuide(o: BuildOptions, path: string, log: (message: string) => void): Promise<BuildResult> {
+  const file = resolve(o.cwd, path);
+  let guide: Guide;
+  try {
+    guide = await readGuide(file);
+  } catch (error) {
+    throw new ConfigError(t(o.config.uiLanguage, "guide.unreadable", { path: file, error: (error as Error).message }));
+  }
+  return publish(o, guide, o.home ?? explicameHome(), log, NO_USAGE);
+}
+
+/** Voice (unless --no-voice), guide.json and the index, and the player next to them. */
+async function publish(o: BuildOptions, verified: Guide, home: string, log: (message: string) => void, usage: Usage): Promise<BuildResult> {
+  const lang = o.config.uiLanguage;
   const outputRoot = resolve(o.cwd, o.config.outputDir);
-  const dir = join(outputRoot, guide.id);
+  const dir = join(outputRoot, verified.id);
+  let guide = verified;
   if (o.voice !== false) {
     const providers = o.voiceProviders ?? buildVoiceProviders(o.config, o.credentials);
     if (providers.length === 0) log(t(lang, "voice.noProvider"));
@@ -164,5 +182,5 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
   await copyPlayer(outputRoot);
   log(t(lang, "player.hint"));
   log(t(lang, "build.done", { count: guide.steps.length, langs: guide.languages.join(" + "), path: dir }));
-  return { guide, dir, usage: driver.usage() };
+  return { guide, dir, usage };
 }

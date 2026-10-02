@@ -32,6 +32,10 @@ describe("binary", () => {
     expect(help).toContain("verify");
     expect(help).toContain("voice");
     expect(help).toContain("login");
+    expect(help).toContain("record");
+    const buildHelp = execFileSync(process.execPath, [`${ROOT}packages/cli/dist/bin.js`, "build", "--help"], { encoding: "utf8" });
+    expect(buildHelp).toContain("--from-guide");
+    expect(buildHelp).toContain("--video");
     const pkg = JSON.parse(readFileSync(`${ROOT}packages/cli/package.json`, "utf8")) as { bin: Record<string, string> };
     expect(pkg.bin).toEqual({ explicame: "dist/bin.js", "explain-me": "dist/bin.js" });
   }, 120_000);
