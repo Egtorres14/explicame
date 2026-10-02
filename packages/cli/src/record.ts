@@ -1,12 +1,14 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { LANGUAGES, t, type AllowRule, type Guide, type Lang } from "@explicame/core";
 import { openSession } from "./browser/session.js";
-import { ConfigError } from "./config.js";
+import { sessionPath } from "./build.js";
+import { ConfigError, type Config } from "./config.js";
 import { findFfmpeg } from "./ffmpeg.js";
+import { readGuide } from "./output.js";
 import { playerBundlePath } from "./player.js";
 
 export { findFfmpeg };
@@ -165,4 +167,30 @@ export async function recordGuide(o: RecordOptions): Promise<{ video: string; su
     if (!closed) await session.close().catch(() => {});
     await rm(videoDir, { recursive: true, force: true });
   }
+}
+
+/** Records the guide at guidePath in each language (all of the guide's by default) and returns the MP4 paths. */
+export async function recordLanguages(o: {
+  guidePath: string;
+  config: Config;
+  cwd: string;
+  home: string;
+  langs?: Lang[];
+  log: (message: string) => void;
+}): Promise<string[]> {
+  const guide = await readGuide(o.guidePath);
+  const wanted = o.langs ?? guide.languages;
+  const unknown = wanted.filter((lang) => !(LANGUAGES as readonly string[]).includes(lang));
+  if (unknown.length) throw new ConfigError(t(o.config.uiLanguage, "record.badLang", { langs: unknown.join(", "), valid: LANGUAGES.join(", ") }));
+  const videos: string[] = [];
+  for (const lang of wanted.filter((l) => guide.languages.includes(l))) {
+    const result = await recordGuide({
+      guide, guidesRoot: dirname(dirname(o.guidePath)), appUrl: o.config.appUrl, lang,
+      outDir: resolve(o.cwd, o.config.videoDir), allowRequests: o.config.safety.allowRequests,
+      storageStatePath: sessionPath(o.home, o.cwd), uiLang: o.config.uiLanguage,
+    });
+    o.log(t(o.config.uiLanguage, "record.done", { path: result.video }));
+    videos.push(result.video);
+  }
+  return videos;
 }

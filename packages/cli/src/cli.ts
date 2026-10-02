@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { dirname, join, resolve } from "node:path";
 import { t, type Lang } from "@explicame/core";
 import { AppUnreachableError, openSession } from "./browser/session.js";
-import { build, sessionPath } from "./build.js";
+import { build } from "./build.js";
 import { ConfigError, loadConfig, type Config } from "./config.js";
 import { explicameHome, loadCredentials, type Credentials } from "./credentials.js";
 import { createFakeDriver, loadFakeScript } from "./generate/fakeDriver.js";
@@ -14,7 +14,7 @@ import { VerifyError, verifyGuide } from "./verify.js";
 import { createFakeVoiceProvider } from "./voice/fake.js";
 import { buildVoiceProviders } from "./voice/index.js";
 import { VoiceError, voiceGuide } from "./voice/provider.js";
-import { recordGuide, RecordError } from "./record.js";
+import { recordLanguages, RecordError } from "./record.js";
 import { runMcpServer } from "./mcp/server.js";
 
 export const VERSION = "0.1.0";
@@ -47,21 +47,11 @@ async function run(task: (ctx: RunContext) => Promise<unknown>): Promise<void> {
   }
 }
 
-async function recordAll(ctx: RunContext, guidePath: string, langs: Lang[]): Promise<void> {
-  const file = resolve(ctx.cwd, guidePath);
-  const guide = await readGuide(file);
-  for (const lang of langs.filter((l) => guide.languages.includes(l))) {
-    const result = await recordGuide({
-      guide, guidesRoot: dirname(dirname(file)), appUrl: ctx.config.appUrl, lang,
-      outDir: resolve(ctx.cwd, ctx.config.videoDir), allowRequests: ctx.config.safety.allowRequests,
-      storageStatePath: sessionPath(explicameHome(), ctx.cwd), uiLang: ctx.config.uiLanguage,
-    });
-    ctx.log(t(ctx.config.uiLanguage, "record.done", { path: result.video }));
-  }
-}
+const recordAll = (ctx: RunContext, guidePath: string, langs?: Lang[]) =>
+  recordLanguages({ guidePath: resolve(ctx.cwd, guidePath), config: ctx.config, cwd: ctx.cwd, home: explicameHome(), langs, log: ctx.log });
 
-const langsOf = (value: string | undefined, config: Config): Lang[] =>
-  !value || value === "all" ? config.languages : (value.split(",").map((s) => s.trim()) as Lang[]);
+const langsOf = (value: string | undefined): Lang[] | undefined =>
+  !value || value === "all" ? undefined : (value.split(",").map((s) => s.trim()) as Lang[]);
 
 const list = (value: string | undefined) => (value ? value.split(",").map((s) => s.trim()).filter(Boolean) : undefined);
 
@@ -95,7 +85,7 @@ export function createProgram(): Command {
           driver: fakeScript ? createFakeDriver(await loadFakeScript(resolve(cwd, fakeScript))) : undefined,
           voiceProviders: process.env.EXPLICAME_FAKE_VOICE ? [createFakeVoiceProvider()] : undefined,
         });
-        if (opts.video) await recordAll({ cwd, config, credentials, log }, join(result.dir, "guide.json"), config.languages);
+        if (opts.video) await recordAll({ cwd, config, credentials, log }, join(result.dir, "guide.json"));
       }),
     );
 
@@ -132,7 +122,7 @@ export function createProgram(): Command {
     .command("record <guide>")
     .description("graba la guía como MP4 con subtítulos · records the guide as an MP4 with subtitles")
     .option("--lang <langs>", "es, en o all", "all")
-    .action((guidePath: string, opts: { lang: string }) => run((ctx) => recordAll(ctx, guidePath, langsOf(opts.lang, ctx.config))));
+    .action((guidePath: string, opts: { lang: string }) => run((ctx) => recordAll(ctx, guidePath, langsOf(opts.lang))));
 
   program
     .command("login")

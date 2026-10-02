@@ -10,7 +10,7 @@ import type { Guide } from "@explicame/core";
 import { build } from "../src/build.js";
 import { ConfigError, ConfigSchema } from "../src/config.js";
 import { createFakeDriver, loadFakeScript } from "../src/generate/fakeDriver.js";
-import { buildSrt, ffmpegArgs, findFfmpeg, guideAssetPath, recordEvent, recordGuide, RecordError, srtTime } from "../src/record.js";
+import { buildSrt, ffmpegArgs, findFfmpeg, guideAssetPath, recordEvent, recordGuide, RecordError, recordLanguages, srtTime } from "../src/record.js";
 import { createFakeVoiceProvider, silentMp3 } from "../src/voice/fake.js";
 import { startServer, type TestServer } from "./helpers/server.js";
 
@@ -63,6 +63,15 @@ describe("what the recorded page may ask for", () => {
     for (const path of ["/__explicame__/filtro/..%2f..%2f.env", "/__explicame__/filtro/..%5c..%5ccredentials.json", "/__explicame__/filtro/%2e%2e/guide.json", "/__explicame__/filtro/%E0%A4%A"]) {
       expect(guideAssetPath(root, "filtro", path)).toBeNull();
     }
+  });
+
+  it("refuses languages it does not know before opening a browser", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "explicame-rec-langs-"));
+    const file = join(dir, "g", "guide.json");
+    await mkdir(join(dir, "g"), { recursive: true });
+    await writeFile(file, JSON.stringify(guideOf([{ narration: { es: "Uno." } }])));
+    const config = ConfigSchema.parse({});
+    await expect(recordLanguages({ guidePath: file, config, cwd: dir, home: dir, langs: ["fr" as "es"], log: () => {} })).rejects.toThrow(/Idioma no válido: fr/);
   });
 
   it("keeps only well-formed timing events", () => {

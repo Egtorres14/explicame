@@ -36,6 +36,8 @@ export interface BuildOptions {
   voiceProviders?: VoiceProvider[];
   home?: string;
   log?: (message: string) => void;
+  /** Receives a JPEG of the screen after every step the AI adds (live progress in the panel). */
+  onShot?: (jpeg: Buffer) => void;
 }
 
 export interface BuildResult {
@@ -143,6 +145,7 @@ async function runBuild(o: BuildOptions, log: (message: string) => void, reportD
     exploration = await runExploration({
       driver, session, languages: o.config.languages, maxSteps: o.config.maxSteps, context,
       appUrl: o.config.appUrl, startUrl: o.config.startUrl, onEvent: (event) => log(event.message), lang,
+      afterStep: o.onShot ? async () => o.onShot?.(await session.page.screenshot({ type: "jpeg", quality: 60 })) : undefined,
     });
   } finally {
     await session.close();

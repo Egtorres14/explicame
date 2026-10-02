@@ -33,6 +33,8 @@ export interface ExplorationState {
   steps: Step[];
   title: LocalizedText | null;
   onEvent?: (event: LoopEvent) => void;
+  /** Runs after every step is added (the panel takes a screenshot here). */
+  afterStep?: () => Promise<void>;
 }
 
 export interface ExplorationOptions {
@@ -48,6 +50,7 @@ export interface ExplorationOptions {
   tokenBudget?: number;
   /** Language of the messages for the person running the CLI (tool results to the AI stay in English). */
   lang?: Lang;
+  afterStep?: () => Promise<void>;
 }
 
 export interface ExplorationResult {
@@ -66,7 +69,7 @@ function checkBudget(o: ExplorationOptions): void {
 }
 
 export async function runExploration(o: ExplorationOptions): Promise<ExplorationResult> {
-  const state: ExplorationState = { session: o.session, languages: o.languages, maxSteps: o.maxSteps, steps: [], title: null, onEvent: o.onEvent };
+  const state: ExplorationState = { session: o.session, languages: o.languages, maxSteps: o.maxSteps, steps: [], title: null, onEvent: o.onEvent, afterStep: o.afterStep };
   const user = initialMessage({
     languages: o.languages, appUrl: o.appUrl, startUrl: o.startUrl, maxSteps: o.maxSteps,
     diff: o.context.diff, files: o.context.files, description: o.context.description, omittedFiles: o.context.omittedFiles,
@@ -123,6 +126,7 @@ export async function executeCall(call: ToolCall, state: ExplorationState): Prom
       return { id: call.id, content: t("en", "tool.stepLimit", { max: state.maxSteps }), isError: true };
     }
     state.steps.push(await buildStep(state, c));
+    await state.afterStep?.();
     state.onEvent?.({ type: "step", message: `step ${state.steps.length}` });
     return { id: call.id, content: JSON.stringify({ added: state.steps.length, observation: await observe(page) }) };
   } catch (error) {
