@@ -658,6 +658,444 @@ git commit -m "feat(voz): comando propio sin shell, voz del navegador y clonaci�
 
 ---
 
+### Task 3: Piper, gratis y local
+
+**Files:**
+- Create: `packages/cli/src/voice/piper.ts`
+- Modify: `packages/cli/src/voice/index.ts`, `packages/cli/src/build.ts`, `packages/core/src/i18n.ts`
+- Test: `packages/cli/test/piper.test.ts`, `packages/cli/test/piper.live.test.ts` (solo con `EXPLICAME_LIVE_PIPER=1`)
+
+**Interfaces:**
+- Consumes: `VoiceProvider` con `voiceFor` (Tarea 1); `toMp3`, `findFfmpeg` (Tarea 2); `explicameHome`.
+- Produces: `PIPER_RELEASE`; `piperAsset(platform, arch): PiperAsset`; `PIPER_VOICES = { es: "es_ES-carlfm-x_low", en: "en_US-ljspeech-medium" }`; `piperVoiceUrls(name)`; `download(url, dest, { sha256?, fetchImpl? })`; `ensurePiperEngine(o)`; `ensurePiperVoice(o)`; `createPiperProvider(o)`; `buildVoiceProviders(config, creds, o?: { home?: string; log?: (message: string) => void })`; claves i18n `piper.engine` y `piper.voice`.
+
+Hechos verificados (investigación del 2026-10-01, ver ledger):
+- Piper ya no publica ejecutables: los últimos son los de `rhasspy/piper` `2023.11.14-2` (MIT, con espeak-ng GPL-3.0 dentro). Funcionan en Windows x64 (necesitan el runtime de Visual C++ 2015–2022) y Linux x86_64/aarch64 (glibc ≥ 2.29). Los de macOS vienen sin sus bibliotecas y no arrancan: en macOS se pide el proveedor `command`.
+- La release no publica sumas: estas son las SHA-256 calculadas al descargarlas: Windows `f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea`, Linux x86_64 `a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992`, Linux aarch64 `fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb`. Cada archivo trae una carpeta `piper/` con el ejecutable y `espeak-ng-data/`.
+- Voces de `rhasspy/piper-voices` en la revisión fija `c10ece1aade47bb51c153c893d14e5bf8e5b7117`. Por licencia: `en_US-ljspeech-medium` es de dominio público; ninguna voz española de calidad media tiene una cadena limpia (todas parten de `lessac`, de licencia solo para investigación), y la única limpia es `es_ES-carlfm-x_low` (dominio público, entrenada desde cero, 16 kHz). Esas dos son las de por defecto; `es_MX-ald-medium` y `es_ES-davefx-medium` se pueden elegir y se documenta la advertencia.
+- Piper 2023 lee el texto de stdin hasta EOF, escribe WAV con `--output_file`, `--length_scale` > 1 es más lento, y en Windows rompe las rutas con caracteres no ASCII: se ejecuta con `cwd` en su carpeta y argumentos relativos ASCII.
+
+- [ ] **Step 1: Escribir las pruebas que fallan**
+
+`packages/cli/test/piper.test.ts`:
+```ts
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { findFfmpeg } from "../src/ffmpeg.js";
+import { download, ensurePiperEngine, createPiperProvider, piperAsset, piperVoiceUrls, PIPER_VOICES, type PiperRunner } from "../src/voice/piper.js";
+import { VoiceError } from "../src/voice/provider.js";
+
+const sha = (data: Uint8Array) => createHash("sha256").update(data).digest("hex");
+const respond = (data: Uint8Array | string) => vi.fn(async () => new Response(typeof data === "string" ? data : new Uint8Array(data)));
+
+/** One second of silent 16-bit mono WAV, like Piper writes. */
+function wav(): Buffer {
+  const data = Buffer.alloc(16000 * 2);
+  const h = Buffer.alloc(44);
+  h.write("RIFF", 0);
+  h.writeUInt32LE(36 + data.length, 4);
+  h.write("WAVE", 8);
+  h.write("fmt ", 12);
+  h.writeUInt32LE(16, 16);
+  h.writeUInt16LE(1, 20);
+  h.writeUInt16LE(1, 22);
+  h.writeUInt32LE(16000, 24);
+  h.writeUInt32LE(32000, 28);
+  h.writeUInt16LE(2, 32);
+  h.writeUInt16LE(16, 34);
+  h.write("data", 36);
+  h.writeUInt32LE(data.length, 40);
+  return Buffer.concat([h, data]);
+}
+
+describe("piper downloads", () => {
+  it("picks the checked build for Windows and Linux and sends macOS to the command provider", () => {
+    expect(piperAsset("win32", "x64")).toEqual({ file: "piper_windows_amd64.zip", sha256: "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea", exe: "piper.exe" });
+    expect(piperAsset("linux", "x64").file).toBe("piper_linux_x86_64.tar.gz");
+    expect(piperAsset("linux", "arm64").file).toBe("piper_linux_aarch64.tar.gz");
+    expect(() => piperAsset("darwin", "arm64")).toThrow(/command/);
+  });
+
+  it("finds catalog voices at the pinned revision and knows the checked ones", () => {
+    expect(PIPER_VOICES).toEqual({ es: "es_ES-carlfm-x_low", en: "en_US-ljspeech-medium" });
+    const ald = piperVoiceUrls("es_MX-ald-medium");
+    expect(ald.onnx).toBe("https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/es/es_MX/ald/medium/es_MX-ald-medium.onnx");
+    expect(ald.json).toBe(`${ald.onnx}.json`);
+    expect(ald.sha256).toBe("019b3803293c93e34a206dd2e53a3889209a514e786fd7144f7b70196c579b63");
+    expect(piperVoiceUrls("pt_BR-faber-medium").sha256).toBeUndefined();
+    expect(() => piperVoiceUrls("../../evil")).toThrow(VoiceError);
+  });
+
+  it("keeps a download only when its SHA-256 matches", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "explicame-dl-"));
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    await download("https://x/ok.bin", join(dir, "ok.bin"), { sha256: sha(bytes), fetchImpl: respond(bytes) as unknown as typeof fetch });
+    expect([...(await readFile(join(dir, "ok.bin")))]).toEqual([1, 2, 3, 4]);
+    await expect(download("https://x/bad.bin", join(dir, "bad.bin"), { sha256: "0".repeat(64), fetchImpl: respond(bytes) as unknown as typeof fetch })).rejects.toThrow(/SHA-256/);
+    expect(readdirSync(dir)).toEqual(["ok.bin"]);
+  });
+
+  it("installs the engine once, without the Arabic-only model", async () => {
+    const home = await mkdtemp(join(tmpdir(), "explicame-piper-home-"));
+    const archive = new Uint8Array([9, 9, 9]);
+    const fetchImpl = respond(archive);
+    const extract = vi.fn(async (_archive: string, dir: string) => {
+      await mkdir(join(dir, "piper", "espeak-ng-data"), { recursive: true });
+      await writeFile(join(dir, "piper", "piper.exe"), "stub");
+      await writeFile(join(dir, "piper", "libtashkeel_model.ort"), "arabic");
+    });
+    const asset = { file: "piper_test.zip", sha256: sha(archive), exe: "piper.exe" };
+    const first = await ensurePiperEngine({ home, asset, fetchImpl: fetchImpl as unknown as typeof fetch, extract });
+    expect(first.exe).toBe(join(home, "piper", "2023.11.14-2", "piper", "piper.exe"));
+    expect(existsSync(join(first.dir, "libtashkeel_model.ort"))).toBe(false);
+    expect(fetchImpl.mock.calls[0]![0]).toBe("https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_test.zip");
+    await ensurePiperEngine({ home, asset, fetchImpl: fetchImpl as unknown as typeof fetch, extract });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("piper provider", () => {
+  async function provider(run: PiperRunner) {
+    const home = await mkdtemp(join(tmpdir(), "explicame-piper-run-"));
+    const archive = new Uint8Array([7]);
+    const fetchImpl = vi.fn(async (url: string) => new Response(url.endsWith(".zip") ? archive : "{}"));
+    return createPiperProvider({
+      home,
+      voices: { es: "es_ES-prueba-medium" },
+      ffmpeg: () => findFfmpeg("es"),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      asset: { file: "piper_test.zip", sha256: sha(archive), exe: "piper.exe" },
+      extract: async (_archive, dir) => {
+        await mkdir(join(dir, "piper"), { recursive: true });
+        await writeFile(join(dir, "piper", "piper.exe"), "stub");
+      },
+      run,
+    });
+  }
+
+  it("runs Piper from its own folder with relative arguments and returns MP3", async () => {
+    let seen: { args: string[]; cwd: string; input: string } | undefined;
+    const p = await provider(async (_exe, args, o) => {
+      seen = { args, cwd: o.cwd, input: o.input };
+      await writeFile(join(o.cwd, args[args.indexOf("--output_file") + 1]!), wav());
+    });
+    expect(p.voiceFor?.("es")).toBe("es_ES-prueba-medium");
+    expect(p.voiceFor?.("en")).toBe("en_US-ljspeech-medium");
+    const audio = await p.synthesize({ text: "Hola, José", lang: "es", voice: "es_ES-prueba-medium", speed: 1.25 });
+    expect(audio.subarray(0, 3).toString("latin1") === "ID3" || audio[0] === 0xff).toBe(true);
+    expect(seen!.input).toBe("Hola, José");
+    expect(seen!.args.slice(0, 4)).toEqual(["--model", "voices/es_ES-prueba-medium.onnx", "--config", "voices/es_ES-prueba-medium.onnx.json"]);
+    expect(seen!.args).toEqual(expect.arrayContaining(["--length_scale", "0.8", "--espeak_data", "espeak-ng-data"]));
+    expect(seen!.args[seen!.args.indexOf("--output_file") + 1]).toMatch(/^out-[0-9a-f]+\.wav$/);
+    expect(readdirSync(seen!.cwd).filter((file) => file.startsWith("out-"))).toEqual([]);
+  });
+
+  it("explains the missing Visual C++ runtime on Windows", async () => {
+    const p = await provider(async () => {
+      throw Object.assign(new Error("exit"), { code: 3221225781 });
+    });
+    await expect(p.synthesize({ text: "Hola", lang: "es", speed: 1 })).rejects.toThrow(/vc_redist\.x64\.exe/);
+  });
+});
+```
+
+`packages/cli/test/piper.live.test.ts`:
+```ts
+import { execFileSync } from "node:child_process";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { findFfmpeg } from "../src/ffmpeg.js";
+import { createPiperProvider } from "../src/voice/piper.js";
+
+// Real download (~120 MB the first time) and real synthesis. Opt in with EXPLICAME_LIVE_PIPER=1.
+describe.skipIf(!process.env.EXPLICAME_LIVE_PIPER)("piper, for real", () => {
+  it("speaks Spanish and English with the default voices", async () => {
+    const provider = createPiperProvider({ home: process.env.EXPLICAME_HOME ?? join(homedir(), ".explicame"), ffmpeg: () => findFfmpeg("es"), log: console.log });
+    const out = await mkdtemp(join(tmpdir(), "explicame-piper-live-"));
+    for (const [lang, text] of [["es", "Aquí eliges el rango de fechas del reporte."], ["en", "Here you pick the date range of the report."]] as const) {
+      const file = join(out, `${lang}.mp3`);
+      await writeFile(file, await provider.synthesize({ text, lang, voice: provider.voiceFor?.(lang), speed: 1 }));
+      const seconds = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" }));
+      expect(seconds).toBeGreaterThan(1);
+    }
+  }, 600_000);
+});
+```
+
+- [ ] **Step 2: Ejecutar las pruebas para verlas fallar**
+
+Run: `npx vitest run packages/cli/test/piper.test.ts`
+Expected: FAIL — `Cannot find module '../src/voice/piper.js'`.
+
+- [ ] **Step 3: Implementar Piper**
+
+`packages/cli/src/voice/piper.ts`:
+```ts
+import { execFile, spawn } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
+import { createWriteStream, existsSync } from "node:fs";
+import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
+import { once } from "node:events";
+import { join } from "node:path";
+import { finished } from "node:stream/promises";
+import { promisify } from "node:util";
+import { t, type Lang, type LocalizedText } from "@explicame/core";
+import { toMp3 } from "../ffmpeg.js";
+import { VoiceError, type VoiceProvider } from "./provider.js";
+
+const run = promisify(execFile);
+
+/** The last standalone Piper builds (MIT; espeak-ng inside is GPL-3.0 and runs as a separate program). */
+export const PIPER_RELEASE = "2023.11.14-2";
+const ENGINE_BASE = `https://github.com/rhasspy/piper/releases/download/${PIPER_RELEASE}`;
+const VOICES_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117";
+
+export interface PiperAsset {
+  file: string;
+  sha256: string;
+  exe: string;
+}
+
+/** The checked build for this system. The macOS builds ship without their libraries and never start. */
+export function piperAsset(platform: NodeJS.Platform, arch: string): PiperAsset {
+  if (platform === "win32" && arch === "x64") {
+    return { file: "piper_windows_amd64.zip", sha256: "f3c58906402b24f3a96d92145f58acba6d86c9b5db896d207f78dc80811efcea", exe: "piper.exe" };
+  }
+  if (platform === "linux" && arch === "x64") {
+    return { file: "piper_linux_x86_64.tar.gz", sha256: "a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992", exe: "piper" };
+  }
+  if (platform === "linux" && arch === "arm64") {
+    return { file: "piper_linux_aarch64.tar.gz", sha256: "fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb", exe: "piper" };
+  }
+  throw new VoiceError(`Piper has no working build for ${platform}/${arch}: use voice.provider "command" with Piper for Python (pip install piper-tts), or a cloud voice.`);
+}
+
+/** Default voices with a clean license chain: LJ Speech is public domain; carlfm was trained from scratch on public-domain data. */
+export const PIPER_VOICES: Record<Lang, string> = { es: "es_ES-carlfm-x_low", en: "en_US-ljspeech-medium" };
+
+/** SHA-256 of the .onnx of the voices checked for this release (X-Linked-ETag at the pinned revision). */
+const CHECKED_VOICES: Record<string, string> = {
+  "en_US-ljspeech-medium": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+  "es_ES-carlfm-x_low": "d69677323a907cd4963f42b29c20a98b5d6bfa7f3e64df339915e4650c00d125",
+  "es_MX-ald-medium": "019b3803293c93e34a206dd2e53a3889209a514e786fd7144f7b70196c579b63",
+  "es_ES-davefx-medium": "6658b03b1a6c316ee4c265a9896abc1393353c2d9e1bca7d66c2c442e222a917",
+};
+
+/** Where a catalog voice lives: "es_MX-ald-medium" → es/es_MX/ald/medium/es_MX-ald-medium.onnx at the pinned revision. */
+export function piperVoiceUrls(name: string): { onnx: string; json: string; sha256?: string } {
+  const match = /^([a-z]{2,3})_([A-Z]{2})-([a-z0-9_]+)-(x_low|low|medium|high)$/.exec(name);
+  if (!match) throw new VoiceError(`"${name}" is not a Piper voice name such as es_MX-ald-medium.`);
+  const [, family, region, speaker, quality] = match;
+  const onnx = `${VOICES_BASE}/${family}/${family}_${region}/${speaker}/${quality}/${name}.onnx`;
+  return { onnx, json: `${onnx}.json`, sha256: CHECKED_VOICES[name] };
+}
+
+/** Downloads through a temporary file and keeps it only when its SHA-256 matches (when one is known). */
+export async function download(url: string, dest: string, o: { sha256?: string; fetchImpl?: typeof fetch } = {}): Promise<void> {
+  const response = await (o.fetchImpl ?? fetch)(url);
+  if (!response.ok || !response.body) throw new VoiceError(`Download failed (${response.status}): ${url}`);
+  const partial = `${dest}.${randomBytes(4).toString("hex")}.part`;
+  const hash = createHash("sha256");
+  const file = createWriteStream(partial);
+  try {
+    for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+      hash.update(chunk);
+      if (!file.write(chunk)) await once(file, "drain");
+    }
+    file.end();
+    await finished(file);
+    const digest = hash.digest("hex");
+    if (o.sha256 && digest !== o.sha256) throw new VoiceError(`The download of ${url} does not match its SHA-256 (got ${digest}).`);
+    await rename(partial, dest);
+  } catch (error) {
+    file.destroy();
+    throw error;
+  } finally {
+    await rm(partial, { force: true });
+  }
+}
+
+async function extractArchive(archive: string, dir: string): Promise<void> {
+  // Windows 10+ ships bsdtar, which also reads .zip; a tar from Git or MSYS earlier on PATH would not.
+  const tar = process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe") : "tar";
+  await run(tar, ["-xf", archive, "-C", dir]);
+}
+
+const inFlight = new Map<string, Promise<unknown>>();
+/** One download per path at a time, even when several steps ask for it together. */
+function single<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const running = inFlight.get(key) as Promise<T> | undefined;
+  if (running) return running;
+  const started = task().finally(() => inFlight.delete(key));
+  inFlight.set(key, started);
+  return started;
+}
+
+export interface EngineOptions {
+  home: string;
+  platform?: NodeJS.Platform;
+  arch?: string;
+  /** Test seams. */
+  asset?: PiperAsset;
+  fetchImpl?: typeof fetch;
+  extract?: (archive: string, dir: string) => Promise<void>;
+  log?: (message: string) => void;
+  lang?: Lang;
+}
+
+/** Installs the engine once into <home>/piper/<release>/piper and returns its folder and executable. */
+export async function ensurePiperEngine(o: EngineOptions): Promise<{ dir: string; exe: string }> {
+  const asset = o.asset ?? piperAsset(o.platform ?? process.platform, o.arch ?? process.arch);
+  const root = join(o.home, "piper", PIPER_RELEASE);
+  const dir = join(root, "piper");
+  const exe = join(dir, asset.exe);
+  if (existsSync(exe)) return { dir, exe };
+  return single(root, async () => {
+    o.log?.(t(o.lang ?? "es", "piper.engine", { release: PIPER_RELEASE, dir: root }));
+    await mkdir(root, { recursive: true });
+    const staging = await mkdtemp(join(root, "staging-"));
+    try {
+      const archive = join(staging, asset.file);
+      await download(`${ENGINE_BASE}/${asset.file}`, archive, { sha256: asset.sha256, fetchImpl: o.fetchImpl });
+      await (o.extract ?? extractArchive)(archive, staging);
+      if (!existsSync(join(staging, "piper", asset.exe))) throw new VoiceError("The Piper archive does not contain its executable.");
+      await rm(join(staging, "piper", "libtashkeel_model.ort"), { force: true }); // Arabic-only model, 10 MB
+      await rename(join(staging, "piper"), dir).catch((error: unknown) => {
+        if (!existsSync(exe)) throw error;
+      });
+    } finally {
+      await rm(staging, { recursive: true, force: true });
+    }
+    return { dir, exe };
+  });
+}
+
+/** Downloads a catalog voice once into the engine's voices/ folder; returns its path relative to the engine. */
+export async function ensurePiperVoice(o: { engineDir: string; name: string; fetchImpl?: typeof fetch; log?: (message: string) => void; lang?: Lang }): Promise<string> {
+  const relative = `voices/${o.name}.onnx`;
+  const onnx = join(o.engineDir, "voices", `${o.name}.onnx`);
+  if (existsSync(onnx) && existsSync(`${onnx}.json`)) return relative;
+  const urls = piperVoiceUrls(o.name);
+  return single(onnx, async () => {
+    o.log?.(t(o.lang ?? "es", "piper.voice", { voice: o.name }));
+    await mkdir(join(o.engineDir, "voices"), { recursive: true });
+    await download(urls.json, `${onnx}.json`, { fetchImpl: o.fetchImpl });
+    await download(urls.onnx, onnx, { sha256: urls.sha256, fetchImpl: o.fetchImpl });
+    return relative;
+  });
+}
+
+export type PiperRunner = (exe: string, args: string[], o: { cwd: string; input: string }) => Promise<void>;
+
+const runPiper: PiperRunner = (exe, args, o) =>
+  new Promise((done, fail) => {
+    const child = spawn(exe, args, { cwd: o.cwd, windowsHide: true, stdio: ["pipe", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr = (stderr + chunk.toString()).slice(-2000);
+    });
+    child.on("error", fail);
+    child.on("close", (code) => (code === 0 ? done() : fail(Object.assign(new Error(stderr.trim() || `exit code ${code}`), { code }))));
+    child.stdin.end(o.input, "utf8");
+  });
+
+/** 0xC0000135, "a DLL was not found": on Windows that is the Visual C++ runtime Piper needs. */
+const MISSING_DLL = new Set([3221225781, -1073741515]);
+
+export function createPiperProvider(o: EngineOptions & { voices?: LocalizedText; ffmpeg: () => Promise<string>; run?: PiperRunner }): VoiceProvider {
+  return {
+    id: "piper",
+    model: PIPER_RELEASE,
+    voiceFor: (lang) => o.voices?.[lang] ?? PIPER_VOICES[lang],
+    async synthesize(request) {
+      const name = request.voice ?? PIPER_VOICES[request.lang];
+      const engine = await ensurePiperEngine(o);
+      const model = await ensurePiperVoice({ engineDir: engine.dir, name, fetchImpl: o.fetchImpl, log: o.log, lang: o.lang });
+      const out = `out-${randomBytes(6).toString("hex")}.wav`;
+      const wav = join(engine.dir, out);
+      // Relative ASCII arguments from the engine's folder: Piper 2023 garbles non-ASCII paths on Windows.
+      const args = [
+        "--model", model, "--config", `${model}.json`, "--output_file", out,
+        "--length_scale", String(Math.round((1 / request.speed) * 100) / 100), "--espeak_data", "espeak-ng-data", "-q",
+      ];
+      try {
+        try {
+          await (o.run ?? runPiper)(engine.exe, args, { cwd: engine.dir, input: request.text });
+        } catch (error) {
+          const code = (error as { code?: unknown }).code;
+          if (typeof code === "number" && MISSING_DLL.has(code)) {
+            throw new VoiceError("Piper needs the Microsoft Visual C++ runtime: install it from https://aka.ms/vs/17/release/vc_redist.x64.exe");
+          }
+          throw new VoiceError(`Piper failed: ${((error as Error).message.split("\n")[0] ?? "").slice(0, 200)}`);
+        }
+        if (!existsSync(wav)) throw new VoiceError("Piper wrote no audio.");
+        return await toMp3(wav, `${wav}.mp3`, await o.ffmpeg());
+      } finally {
+        await rm(wav, { force: true });
+        await rm(`${wav}.mp3`, { force: true });
+      }
+    },
+  };
+}
+```
+
+En `packages/core/src/i18n.ts`, en `es` antes de `"player.hint"`:
+
+```ts
+  "piper.engine": "Descargando Piper {release} (unos 25 MB) en {dir}. Piper (MIT) trae espeak-ng (GPL-3.0); explicame lo ejecuta como un programa aparte.",
+  "piper.voice": "Descargando la voz de Piper {voice}…",
+```
+
+y en `en` antes de `"player.hint"`:
+
+```ts
+  "piper.engine": "Downloading Piper {release} (about 25 MB) into {dir}. Piper (MIT) bundles espeak-ng (GPL-3.0); explicame runs it as a separate program.",
+  "piper.voice": "Downloading the Piper voice {voice}…",
+```
+
+En `packages/cli/src/voice/index.ts`:
+- agregar `import { explicameHome } from "../credentials.js";` e `import { createPiperProvider } from "./piper.js";`;
+- la firma pasa a `buildVoiceProviders(config: Config, creds: Credentials, o: { home?: string; log?: (message: string) => void } = {}): VoiceProvider[]` (y el comentario `// o.home is where Piper keeps its engine and voices (Task 3).` se borra);
+- dentro del `for`, después del bloque de `command`:
+
+```ts
+    if (id === "piper") {
+      providers.push(createPiperProvider({ home: o.home ?? explicameHome(), voices, ffmpeg: () => findFfmpeg(config.uiLanguage), log: o.log, lang: config.uiLanguage }));
+    }
+```
+
+En `packages/cli/src/build.ts`, en `publish`, cambiar `buildVoiceProviders(o.config, o.credentials, { home })` por `buildVoiceProviders(o.config, o.credentials, { home, log })`.
+
+- [ ] **Step 4: Ejecutar las pruebas para verlas pasar**
+
+Run: `npx vitest run packages/cli/test/piper.test.ts packages/cli/test/voice.test.ts`
+Expected: PASS (la prueba en vivo queda saltada).
+
+- [ ] **Step 5: Prueba en vivo en esta máquina**
+
+Run: `EXPLICAME_LIVE_PIPER=1 npx vitest run packages/cli/test/piper.live.test.ts`
+Expected: PASS — descarga el motor (verificado por SHA-256) y las dos voces la primera vez, y deja dos MP3 de más de 1 s. Si Windows no tiene el runtime de Visual C++, el error dice cómo instalarlo; se registra en el ledger.
+
+- [ ] **Step 6: Suite y tipos**
+
+Run: `npm test && npm run typecheck`
+Expected: todo en verde.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/cli/src/voice packages/cli/src/build.ts packages/core/src/i18n.ts packages/cli/test/piper.test.ts packages/cli/test/piper.live.test.ts
+git commit -m "feat(voz): Piper gratis y local, con descargas verificadas y voces de licencia limpia por defecto"
+```
+
+---
+
 ### Task 4: Capturas del avance y grabación por idiomas reutilizable
 
 **Files:**
