@@ -1,0 +1,14 @@
+[
+  {
+    "id": "filtrar-reportes-por-fecha",
+    "title": {
+      "es": "Filtrar reportes por fecha",
+      "en": "Filter reports by date"
+    },
+    "startUrl": "/",
+    "languages": [
+      "es",
+      "en"
+    ]
+  }
+]

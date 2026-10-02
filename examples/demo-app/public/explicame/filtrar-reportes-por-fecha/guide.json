@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "id": "filtrar-reportes-por-fecha",
+  "languages": [
+    "es",
+    "en"
+  ],
+  "title": {
+    "es": "Filtrar reportes por fecha",
+    "en": "Filter reports by date"
+  },
+  "startUrl": "/",
+  "steps": [
+    {
+      "narration": {
+        "es": "Desde la barra de herramientas de Reportes, este botón nuevo abre el filtro por fecha para que veas solo el periodo que te interesa. Ábrelo.",
+        "en": "From the Reports toolbar, this new button opens the date filter so you only see the period you care about. Open it."
+      },
+      "target": {
+        "strategies": [
+          {
+            "by": "testid",
+            "value": "filtro-fecha"
+          },
+          {
+            "by": "role",
+            "role": "button",
+            "name": "Filtrar por fecha"
+          },
+          {
+            "by": "text",
+            "value": "Filtrar por fecha"
+          },
+          {
+            "by": "css",
+            "value": "#app > section > button"
+          }
+        ]
+      },
+      "action": {
+        "type": "click"
+      },
+      "opens": "dialog",
+      "audio": {
+        "es": "audio/es/01.mp3",
+        "en": "audio/en/01.mp3"
+      }
+    },
+    {
+      "narration": {
+        "es": "Aquí marcas el inicio del periodo: la tabla dejará fuera todo lo anterior a esta fecha. Escribe el 1 de septiembre de 2026.",
+        "en": "Here you set the start of the period: the table will leave out everything before this date. Enter September 1, 2026."
+      },
+      "target": {
+        "strategies": [
+          {
+            "by": "role",
+            "role": "textbox",
+            "name": "Desde"
+          },
+          {
+            "by": "label",
+            "value": "Desde"
+          },
+          {
+            "by": "css",
+            "value": "#desde"
+          }
+        ]
+      },
+      "action": {
+        "type": "type",
+        "value": "2026-09-01"
+      },
+      "audio": {
+        "es": "audio/es/02.mp3",
+        "en": "audio/en/02.mp3"
+      }
+    },
+    {
+      "narration": {
+        "es": "Y aquí el cierre del periodo. Si dejas una de las dos fechas vacía, ese extremo queda abierto. Escribe el 30 de septiembre de 2026.",
+        "en": "And here the end of the period. If you leave either date empty, that end stays open. Enter September 30, 2026."
+      },
+      "target": {
+        "strategies": [
+          {
+            "by": "role",
+            "role": "textbox",
+            "name": "Hasta"
+          },
+          {
+            "by": "label",
+            "value": "Hasta"
+          },
+          {
+            "by": "css",
+            "value": "#hasta"
+          }
+        ]
+      },
+      "action": {
+        "type": "type",
+        "value": "2026-09-30"
+      },
+      "audio": {
+        "es": "audio/es/03.mp3",
+        "en": "audio/en/03.mp3"
+      }
+    },
+    {
+      "narration": {
+        "es": "Con este selector eliges el nivel de detalle con el que quieres leer el periodo: por día, por semana o por mes. Elige Semana.",
+        "en": "This selector chooses the level of detail you want to read the period at: by day, by week or by month. Pick Week."
+      },
+      "target": {
+        "strategies": [
+          {
+            "by": "role",
+            "role": "combobox",
+            "name": "Agrupar por"
+          },
+          {
+            "by": "label",
+            "value": "Agrupar por"
+          },
+          {
+            "by": "css",
+            "value": "#agrupar"
+          }
+        ]
+      },
+      "action": {
+        "type": "select",
+        "value": "Semana"
+      },
+      "audio": {
+        "es": "audio/es/04.mp3",
+        "en": "audio/en/04.mp3"
+      }
+    },
+    {
+      "narration": {
+        "es": "Este botón guarda el rango como tu filtro predeterminado, así cada vez que entres a Reportes ya aparece aplicado. No lo pulsamos aquí para no cambiar tus preferencias.",
+        "en": "This button saves the range as your default filter, so it is already applied every time you open Reports. We are not pressing it here, to leave your preferences untouched."
+      },
+      "target": {
+        "strategies": [
+          {
+            "by": "role",
+            "role": "button",
+            "name": "Guardar como predeterminado"
+          },
+          {
+            "by": "text",
+            "value": "Guardar como predeterminado"
+          },
+          {
+            "by": "css",
+            "value": "#app > section > dialog > form > button:nth-of-type(2)"
+          }
+        ]
+      },
+      "audio": {
+        "es": "audio/es/05.mp3",
+        "en": "audio/en/05.mp3"
+      }
+    },
+    {
+      "narration": {
+        "es": "Ahora aplica el filtro: la tabla se vuelve a dibujar con solo los reportes del rango y el diálogo se cierra. Pulsa Aplicar.",
+        "en": "Now apply the filter: the table is redrawn with only the reports in the range and the dialog closes. Press Apply."
+      },
+      "target": {
+        "strategies": [
+          {
+            "by": "role",
+            "role": "button",
+            "name": "Aplicar"
+          },
+          {
+            "by": "text",
+            "value": "Aplicar"
+          },
+          {
+            "by": "css",
+            "value": "#app > section > dialog > form > button:nth-of-type(1)"
+          }
+        ]
+      },
+      "action": {
+        "type": "click"
+      },
+      "audio": {
+        "es": "audio/es/06.mp3",
+        "en": "audio/en/06.mp3"
+      }
+    },
+    {
+      "narration": {
+        "es": "Listo: la tabla ya solo muestra los reportes de septiembre. Para ver otro periodo o volver a todos, abre de nuevo el filtro y cambia las fechas.",
+        "en": "Done: the table now shows only September's reports. To see another period, or all of them again, reopen the filter and change the dates."
+      },
+      "audio": {
+        "es": "audio/es/07.mp3",
+        "en": "audio/en/07.mp3"
+      }
+    }
+  ],
+  "source": {
+    "base": "main",
+    "head": "HEAD",
+    "commit": "a81ded2",
+    "generatedBy": "claude-code",
+    "createdAt": "2026-10-02T01:17:58.900Z"
+  }
+}

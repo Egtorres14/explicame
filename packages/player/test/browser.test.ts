@@ -70,6 +70,26 @@ describe("player bundle in a real browser", () => {
     await page.close();
   });
 
+  it("keeps a single player when the bundle loads twice (the app and the recorder)", async () => {
+    const page = await openApp();
+    const same = await page.evaluate(async () => {
+      const first = (window as unknown as { Explicame: object }).Explicame;
+      const script = document.createElement("script");
+      script.src = "/explicame/explicame-player.js";
+      await new Promise((done) => {
+        script.onload = done;
+        document.head.append(script);
+      });
+      const api = (window as unknown as { Explicame: { mount(o: object): void } }).Explicame;
+      api.mount({ lang: "es" });
+      api.mount({ lang: "en" });
+      return first === api;
+    });
+    expect(same).toBe(true);
+    expect(await page.locator("explicame-player").count()).toBe(1);
+    await page.close();
+  });
+
   it("blocks write requests while the guide plays", async () => {
     const page = await openApp();
     await page.evaluate(() => {

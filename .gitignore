@@ -3,5 +3,5 @@ dist/
 .explicame/
 .superpowers/
 examples/demo-app/dist/
-examples/demo-app/public/explicame/
+examples/demo-app/public/explicame/explicame-player.js
 *.log
